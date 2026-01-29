@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Personal - Control de Nómina en Obra{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-title">
+        👥 Gestión de Personal
+    </div>
+
+    <div style="margin-bottom: 20px;">
+        <button class="btn btn-primary" onclick="openPersonalForm()">+ Nuevo Empleado</button>
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Apellido</th>
+                    <th>DNI</th>
+                    <th>Email</th>
+                    <th>Teléfono</th>
+                    <th>Fecha Ingreso</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="personal-table">
+                <tr><td colspan="9" style="text-align: center;">Cargando...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal para formulario -->
+<div id="personal-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Nuevo Empleado</h3>
+            <button class="modal-close" onclick="closePersonalForm()">×</button>
+        </div>
+        <form id="personal-form" onsubmit="savePersonal(event)">
+            <div class="form-group">
+                <label>Nombre *</label>
+                <input type="text" id="nombre" required>
+            </div>
+            <div class="form-group">
+                <label>Apellido *</label>
+                <input type="text" id="apellido" required>
+            </div>
+            <div class="form-group">
+                <label>DNI</label>
+                <input type="text" id="dni">
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="email">
+            </div>
+            <div class="form-group">
+                <label>Teléfono</label>
+                <input type="tel" id="telefono">
+            </div>
+            <div class="form-group">
+                <label>Fecha de Nacimiento</label>
+                <input type="date" id="fecha_nacimiento">
+            </div>
+            <div class="form-group">
+                <label>Domicilio</label>
+                <input type="text" id="domicilio">
+            </div>
+            <div class="form-group">
+                <label>Ciudad</label>
+                <input type="text" id="ciudad">
+            </div>
+            <div class="form-group">
+                <label>Provincia</label>
+                <input type="text" id="provincia">
+            </div>
+            <div class="form-group">
+                <label>Código Postal</label>
+                <input type="text" id="codigo_postal">
+            </div>
+            <div class="form-group">
+                <label>Fecha de Ingreso *</label>
+                <input type="date" id="fecha_ingreso" required>
+            </div>
+            <div class="btn-group">
+                <button type="submit" class="btn btn-primary">Guardar</button>
+                <button type="button" class="btn btn-secondary" onclick="closePersonalForm()">Cancelar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openPersonalForm() {
+    document.getElementById('personal-modal').classList.add('active');
+    document.getElementById('personal-form').reset();
+}
+
+function closePersonalForm() {
+    document.getElementById('personal-modal').classList.remove('active');
+}
+
+async function savePersonal(event) {
+    event.preventDefault();
+    
+    const data = {
+        nombre: document.getElementById('nombre').value,
+        apellido: document.getElementById('apellido').value,
+        dni: document.getElementById('dni').value,
+        email: document.getElementById('email').value,
+        telefono: document.getElementById('telefono').value,
+        fecha_nacimiento: document.getElementById('fecha_nacimiento').value,
+        domicilio: document.getElementById('domicilio').value,
+        ciudad: document.getElementById('ciudad').value,
+        provincia: document.getElementById('provincia').value,
+        codigo_postal: document.getElementById('codigo_postal').value,
+        fecha_ingreso: document.getElementById('fecha_ingreso').value
+    };
+
+    try {
+        const result = await apiCall('/api/personal', 'POST', data);
+        showNotification('Empleado creado exitosamente');
+        closePersonalForm();
+        loadPersonal();
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+async function loadPersonal() {
+    try {
+        const response = await fetch('/api/personal');
+        const personal = await response.json();
+        
+        const table = document.getElementById('personal-table');
+        table.innerHTML = '';
+        
+        personal.forEach(p => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${p.id}</td>
+                <td>${p.nombre}</td>
+                <td>${p.apellido}</td>
+                <td>${p.dni || '-'}</td>
+                <td>${p.email || '-'}</td>
+                <td>${p.telefono || '-'}</td>
+                <td>${formatDate(p.fecha_ingreso)}</td>
+                <td>${p.estado || 'Activo'}</td>
+                <td>
+                    <button class="btn btn-small btn-primary" onclick="editPersonal(${p.id})" title="Editar">✏️</button>
+                    <button class="btn btn-small btn-danger" onclick="deletePersonal(${p.id})" title="Eliminar">🗑️</button>
+                </td>
+            `;
+            table.appendChild(row);
+        });
+    } catch (error) {
+        console.error('Error cargando personal:', error);
+    }
+}
+
+async function deletePersonal(id) {
+    if (confirm('¿Desea eliminar este empleado?')) {
+        try {
+            await fetch(`/api/personal/${id}`, { method: 'DELETE' });
+            showNotification('Empleado eliminado');
+            loadPersonal();
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    }
+}
+
+function editPersonal(id) {
+    alert('Funcionalidad de edición disponible próximamente');
+}
+
+// Cargar datos al abrir la página
+document.addEventListener('DOMContentLoaded', loadPersonal);
+</script>
+{% endblock %}

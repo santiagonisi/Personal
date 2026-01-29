@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+
+{% block title %}Control de Presentismo - Control de Nómina en Obra{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-title">
+        ✓ Control de Presentismo
+    </div>
+
+    <div style="margin-bottom: 20px;">
+        <button class="btn btn-primary" onclick="openPresentismoForm()">+ Registrar Presentismo</button>
+    </div>
+
+    <div style="margin-bottom: 20px; display: flex; gap: 10px;">
+        <input type="date" id="fecha_filtro" style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+        <select id="obra_filtro" style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+            <option value="">-- Todas las obras --</option>
+        </select>
+        <button class="btn btn-secondary" onclick="filterPresentismo()">Filtrar</button>
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Personal</th>
+                    <th>Obra</th>
+                    <th>Fecha</th>
+                    <th>Tipo</th>
+                    <th>Descripción</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="presentismo-table">
+                <tr><td colspan="7" style="text-align: center;">Cargando...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal para formulario -->
+<div id="presentismo-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Registrar Presentismo</h3>
+            <button class="modal-close" onclick="closePresentismoForm()">×</button>
+        </div>
+        <form id="presentismo-form" onsubmit="savePresentismo(event)">
+            <div class="form-group">
+                <label>Empleado *</label>
+                <select id="personal_id" required></select>
+            </div>
+            <div class="form-group">
+                <label>Obra *</label>
+                <select id="obra_id" required></select>
+            </div>
+            <div class="form-group">
+                <label>Fecha *</label>
+                <input type="date" id="fecha" required>
+            </div>
+            <div class="form-group">
+                <label>Tipo de Presentismo *</label>
+                <select id="tipo" required>
+                    <option value="">-- Seleccione tipo --</option>
+                    <option value="presente">Presente</option>
+                    <option value="ausente_justificado">Ausente Justificado</option>
+                    <option value="ausente_sin_aviso">Ausente Sin Aviso</option>
+                    <option value="art">ART (Accidente/Enfermedad)</option>
+                    <option value="vacacion">Vacación</option>
+                    <option value="franco">Franco</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Descripción</label>
+                <textarea id="descripcion"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Notas</label>
+                <textarea id="notas"></textarea>
+            </div>
+            <div class="btn-group">
+                <button type="submit" class="btn btn-primary">Guardar</button>
+                <button type="button" class="btn btn-secondary" onclick="closePresentismoForm()">Cancelar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+async function loadSelectsForPresentismo() {
+    try {
+        // Cargar personal
+        const personalRes = await fetch('/api/personal');
+        const personal = await personalRes.json();
+        const personalSelect = document.getElementById('personal_id');
+        personalSelect.innerHTML = '<option value="">-- Seleccione empleado --</option>';
+        personal.forEach(p => {
+            const option = document.createElement('option');
+            option.value = p.id;
+            option.textContent = `${p.nombre} ${p.apellido}`;
+            personalSelect.appendChild(option);
+        });
+
+        // Cargar obras
+        const obrasRes = await fetch('/api/obras');
+        const obras = await obrasRes.json();
+        const obraSelect = document.getElementById('obra_id');
+        const obraFiltroSelect = document.getElementById('obra_filtro');
+        
+        obraSelect.innerHTML = '<option value="">-- Seleccione obra --</option>';
+        obraFiltroSelect.innerHTML = '<option value="">-- Todas las obras --</option>';
+        
+        obras.forEach(o => {
+            const option1 = document.createElement('option');
+            option1.value = o.id;
+            option1.textContent = o.nombre;
+            obraSelect.appendChild(option1);
+            
+            const option2 = document.createElement('option');
+            option2.value = o.id;
+            option2.textContent = o.nombre;
+            obraFiltroSelect.appendChild(option2);
+        });
+    } catch (error) {
+        console.error('Error cargando selects:', error);
+    }
+}
+
+function openPresentismoForm() {
+    loadSelectsForPresentismo();
+    document.getElementById('presentismo-modal').classList.add('active');
+    document.getElementById('presentismo-form').reset();
+}
+
+function closePresentismoForm() {
+    document.getElementById('presentismo-modal').classList.remove('active');
+}
+
+async function savePresentismo(event) {
+    event.preventDefault();
+    
+    const data = {
+        personal_id: parseInt(document.getElementById('personal_id').value),
+        obra_id: parseInt(document.getElementById('obra_id').value),
+        fecha: document.getElementById('fecha').value,
+        tipo: document.getElementById('tipo').value,
+        descripcion: document.getElementById('descripcion').value,
+        notas: document.getElementById('notas').value
+    };
+
+    try {
+        await apiCall('/api/presentismo', 'POST', data);
+        showNotification('Presentismo registrado exitosamente');
+        closePresentismoForm();
+        loadPresentismo();
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification('Error al registrar presentismo', 'error');
+    }
+}
+
+async function loadPresentismo() {
+    try {
+        const response = await fetch('/api/presentismo');
+        const presentismo = await response.json();
+        
+        const table = document.getElementById('presentismo-table');
+        table.innerHTML = '';
+        
+        presentismo.forEach(p => {
+            const row = document.createElement('tr');
+            const tipoDisplay = {
+                'presente': '✓ Presente',
+                'ausente_justificado': '📋 Ausente Justificado',
+                'ausente_sin_aviso': '❌ Ausente Sin Aviso',
+                'art': '🏥 ART',
+                'vacacion': '🏖️ Vacación',
+                'franco': '🎉 Franco'
+            };
+            
+            row.innerHTML = `
+                <td>${p.id}</td>
+                <td>${p.personal_nombre} ${p.personal_apellido}</td>
+                <td>${p.obra_nombre}</td>
+                <td>${formatDate(p.fecha)}</td>
+                <td>${tipoDisplay[p.tipo] || p.tipo}</td>
+                <td>${p.descripcion || '-'}</td>
+                <td>
+                    <button class="btn btn-small btn-danger" onclick="deletePresentismo(${p.id})" title="Eliminar">🗑️</button>
+                </td>
+            `;
+            table.appendChild(row);
+        });
+    } catch (error) {
+        console.error('Error cargando presentismo:', error);
+    }
+}
+
+async function filterPresentismo() {
+    try {
+        const fecha = document.getElementById('fecha_filtro').value;
+        const obraId = document.getElementById('obra_filtro').value;
+        
+        let url = '/api/presentismo';
+        const params = [];
+        if (obraId) params.push(`obra_id=${obraId}`);
+        if (params.length > 0) url += '?' + params.join('&');
+        
+        const response = await fetch(url);
+        const presentismo = await response.json();
+        
+        const table = document.getElementById('presentismo-table');
+        table.innerHTML = '';
+        
+        presentismo.forEach(p => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${p.id}</td>
+                <td>${p.personal_nombre} ${p.personal_apellido}</td>
+                <td>${p.obra_nombre}</td>
+                <td>${formatDate(p.fecha)}</td>
+                <td>${p.tipo}</td>
+                <td>${p.descripcion || '-'}</td>
+                <td>
+                    <button class="btn btn-small btn-danger" onclick="deletePresentismo(${p.id})" title="Eliminar">🗑️</button>
+                </td>
+            `;
+            table.appendChild(row);
+        });
+    } catch (error) {
+        console.error('Error filtrando:', error);
+    }
+}
+
+async function deletePresentismo(id) {
+    if (confirm('¿Desea eliminar este registro de presentismo?')) {
+        try {
+            await fetch(`/api/presentismo/${id}`, { method: 'DELETE' });
+            showNotification('Registro eliminado');
+            loadPresentismo();
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadSelectsForPresentismo();
+    loadPresentismo();
+});
+</script>
+{% endblock %}

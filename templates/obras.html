@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Obras - Control de Nómina en Obra{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-title">
+        🏗️ Gestión de Obras
+    </div>
+
+    <div style="margin-bottom: 20px;">
+        <button class="btn btn-primary" onclick="openObraForm()">+ Nueva Obra</button>
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Ubicación</th>
+                    <th>Responsable</th>
+                    <th>Fecha Inicio</th>
+                    <th>Fecha Fin</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="obras-table">
+                <tr><td colspan="8" style="text-align: center;">Cargando...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal para formulario -->
+<div id="obra-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Nueva Obra</h3>
+            <button class="modal-close" onclick="closeObraForm()">×</button>
+        </div>
+        <form id="obra-form" onsubmit="saveObra(event)">
+            <div class="form-group">
+                <label>Nombre *</label>
+                <input type="text" id="nombre" required>
+            </div>
+            <div class="form-group">
+                <label>Descripción</label>
+                <textarea id="descripcion"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Ubicación</label>
+                <input type="text" id="ubicacion">
+            </div>
+            <div class="form-group">
+                <label>Responsable</label>
+                <input type="text" id="responsable">
+            </div>
+            <div class="form-group">
+                <label>Fecha de Inicio</label>
+                <input type="date" id="fecha_inicio">
+            </div>
+            <div class="form-group">
+                <label>Fecha de Fin Estimada</label>
+                <input type="date" id="fecha_fin_estimada">
+            </div>
+            <div class="btn-group">
+                <button type="submit" class="btn btn-primary">Guardar</button>
+                <button type="button" class="btn btn-secondary" onclick="closeObraForm()">Cancelar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openObraForm() {
+    document.getElementById('obra-modal').classList.add('active');
+    document.getElementById('obra-form').reset();
+}
+
+function closeObraForm() {
+    document.getElementById('obra-modal').classList.remove('active');
+}
+
+async function saveObra(event) {
+    event.preventDefault();
+    
+    const data = {
+        nombre: document.getElementById('nombre').value,
+        descripcion: document.getElementById('descripcion').value,
+        ubicacion: document.getElementById('ubicacion').value,
+        responsable: document.getElementById('responsable').value,
+        fecha_inicio: document.getElementById('fecha_inicio').value,
+        fecha_fin_estimada: document.getElementById('fecha_fin_estimada').value
+    };
+
+    try {
+        await apiCall('/api/obras', 'POST', data);
+        showNotification('Obra creada exitosamente');
+        closeObraForm();
+        loadObras();
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+async function loadObras() {
+    try {
+        const response = await fetch('/api/obras');
+        const obras = await response.json();
+        
+        const table = document.getElementById('obras-table');
+        table.innerHTML = '';
+        
+        obras.forEach(o => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${o.id}</td>
+                <td>${o.nombre}</td>
+                <td>${o.ubicacion || '-'}</td>
+                <td>${o.responsable || '-'}</td>
+                <td>${formatDate(o.fecha_inicio)}</td>
+                <td>${formatDate(o.fecha_fin_estimada)}</td>
+                <td>${o.estado || 'Activa'}</td>
+                <td>
+                    <button class="btn btn-small btn-primary" onclick="editObra(${o.id})" title="Editar">✏️</button>
+                    <button class="btn btn-small btn-danger" onclick="deleteObra(${o.id})" title="Eliminar">🗑️</button>
+                </td>
+            `;
+            table.appendChild(row);
+        });
+    } catch (error) {
+        console.error('Error cargando obras:', error);
+    }
+}
+
+async function deleteObra(id) {
+    if (confirm('¿Desea eliminar esta obra?')) {
+        try {
+            await fetch(`/api/obras/${id}`, { method: 'DELETE' });
+            showNotification('Obra eliminada');
+            loadObras();
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    }
+}
+
+function editObra(id) {
+    alert('Funcionalidad de edición disponible próximamente');
+}
+
+document.addEventListener('DOMContentLoaded', loadObras);
+</script>
+{% endblock %}

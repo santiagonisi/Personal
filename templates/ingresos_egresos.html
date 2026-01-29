@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}Entrada/Salida de Personal - Control de Nómina en Obra{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-title">
+        ⏱️ Control de Entrada y Salida
+    </div>
+
+    <div style="margin-bottom: 20px;">
+        <button class="btn btn-primary" onclick="openIngresoEgresoForm()">+ Registrar Entrada/Salida</button>
+    </div>
+
+    <div style="margin-bottom: 20px; display: flex; gap: 10px;">
+        <input type="date" id="fecha_filtro" style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+        <select id="obra_filtro" style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+            <option value="">-- Todas las obras --</option>
+        </select>
+        <button class="btn btn-secondary" onclick="filterIngresoEgreso()">Filtrar</button>
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Personal</th>
+                    <th>Obra</th>
+                    <th>Fecha</th>
+                    <th>Hora Ingreso</th>
+                    <th>Hora Salida</th>
+                    <th>Horas Trabajadas</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="ingresos-egresos-table">
+                <tr><td colspan="8" style="text-align: center;">Cargando...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal para formulario -->
+<div id="ingreso-egreso-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Registrar Entrada/Salida</h3>
+            <button class="modal-close" onclick="closeIngresoEgresoForm()">×</button>
+        </div>
+        <form id="ingreso-egreso-form" onsubmit="saveIngresoEgreso(event)">
+            <div class="form-group">
+                <label>Empleado *</label>
+                <select id="personal_id" required></select>
+            </div>
+            <div class="form-group">
+                <label>Obra *</label>
+                <select id="obra_id" required></select>
+            </div>
+            <div class="form-group">
+                <label>Fecha *</label>
+                <input type="date" id="fecha" required>
+            </div>
+            <div class="form-group">
+                <label>Hora de Ingreso</label>
+                <input type="time" id="hora_ingreso">
+            </div>
+            <div class="form-group">
+                <label>Hora de Salida</label>
+                <input type="time" id="hora_egreso">
+            </div>
+            <div class="form-group">
+                <label>Horas Trabajadas</label>
+                <input type="number" id="horas_trabajadas" step="0.5" min="0">
+            </div>
+            <div class="form-group">
+                <label>Notas</label>
+                <textarea id="notas"></textarea>
+            </div>
+            <div class="btn-group">
+                <button type="submit" class="btn btn-primary">Guardar</button>
+                <button type="button" class="btn btn-secondary" onclick="closeIngresoEgresoForm()">Cancelar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+async function loadSelectsForIngresoEgreso() {
+    try {
+        // Cargar personal
+        const personalRes = await fetch('/api/personal');
+        const personal = await personalRes.json();
+        const personalSelect = document.getElementById('personal_id');
+        personalSelect.innerHTML = '<option value="">-- Seleccione empleado --</option>';
+        personal.forEach(p => {
+            const option = document.createElement('option');
+            option.value = p.id;
+            option.textContent = `${p.nombre} ${p.apellido}`;
+            personalSelect.appendChild(option);
+        });
+
+        // Cargar obras
+        const obrasRes = await fetch('/api/obras');
+        const obras = await obrasRes.json();
+        const obraSelect = document.getElementById('obra_id');
+        const obraFiltroSelect = document.getElementById('obra_filtro');
+        
+        obraSelect.innerHTML = '<option value="">-- Seleccione obra --</option>';
+        obraFiltroSelect.innerHTML = '<option value="">-- Todas las obras --</option>';
+        
+        obras.forEach(o => {
+            const option1 = document.createElement('option');
+            option1.value = o.id;
+            option1.textContent = o.nombre;
+            obraSelect.appendChild(option1);
+            
+            const option2 = document.createElement('option');
+            option2.value = o.id;
+            option2.textContent = o.nombre;
+            obraFiltroSelect.appendChild(option2);
+        });
+    } catch (error) {
+        console.error('Error cargando selects:', error);
+    }
+}
+
+function openIngresoEgresoForm() {
+    loadSelectsForIngresoEgreso();
+    document.getElementById('ingreso-egreso-modal').classList.add('active');
+    document.getElementById('ingreso-egreso-form').reset();
+}
+
+function closeIngresoEgresoForm() {
+    document.getElementById('ingreso-egreso-modal').classList.remove('active');
+}
+
+async function saveIngresoEgreso(event) {
+    event.preventDefault();
+    
+    const data = {
+        personal_id: parseInt(document.getElementById('personal_id').value),
+        obra_id: parseInt(document.getElementById('obra_id').value),
+        fecha: document.getElementById('fecha').value,
+        hora_ingreso: document.getElementById('hora_ingreso').value,
+        hora_egreso: document.getElementById('hora_egreso').value,
+        horas_trabajadas: document.getElementById('horas_trabajadas').value ? 
+                         parseFloat(document.getElementById('horas_trabajadas').value) : null,
+        notas: document.getElementById('notas').value
+    };
+
+    try {
+        await apiCall('/api/ingresos-egresos', 'POST', data);
+        showNotification('Registro creado exitosamente');
+        closeIngresoEgresoForm();
+        loadIngresoEgreso();
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification('Error al registrar entrada/salida', 'error');
+    }
+}
+
+async function loadIngresoEgreso() {
+    try {
+        const response = await fetch('/api/ingresos-egresos');
+        const registros = await response.json();
+        
+        const table = document.getElementById('ingresos-egresos-table');
+        table.innerHTML = '';
+        
+        registros.forEach(r => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${r.id}</td>
+                <td>${r.personal_nombre} ${r.personal_apellido}</td>
+                <td>${r.obra_nombre}</td>
+                <td>${formatDate(r.fecha)}</td>
+                <td>${formatTime(r.hora_ingreso) || '-'}</td>
+                <td>${formatTime(r.hora_egreso) || '-'}</td>
+                <td>${r.horas_trabajadas || '-'} hs</td>
+                <td>
+                    <button class="btn btn-small btn-danger" onclick="deleteIngresoEgreso(${r.id})" title="Eliminar">🗑️</button>
+                </td>
+            `;
+            table.appendChild(row);
+        });
+    } catch (error) {
+        console.error('Error cargando registros:', error);
+    }
+}
+
+async function filterIngresoEgreso() {
+    try {
+        const obraId = document.getElementById('obra_filtro').value;
+        
+        let url = '/api/ingresos-egresos';
+        const params = [];
+        if (obraId) params.push(`obra_id=${obraId}`);
+        if (params.length > 0) url += '?' + params.join('&');
+        
+        const response = await fetch(url);
+        const registros = await response.json();
+        
+        const table = document.getElementById('ingresos-egresos-table');
+        table.innerHTML = '';
+        
+        registros.forEach(r => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${r.id}</td>
+                <td>${r.personal_nombre} ${r.personal_apellido}</td>
+                <td>${r.obra_nombre}</td>
+                <td>${formatDate(r.fecha)}</td>
+                <td>${formatTime(r.hora_ingreso) || '-'}</td>
+                <td>${formatTime(r.hora_egreso) || '-'}</td>
+                <td>${r.horas_trabajadas || '-'} hs</td>
+                <td>
+                    <button class="btn btn-small btn-danger" onclick="deleteIngresoEgreso(${r.id})" title="Eliminar">🗑️</button>
+                </td>
+            `;
+            table.appendChild(row);
+        });
+    } catch (error) {
+        console.error('Error filtrando:', error);
+    }
+}
+
+async function deleteIngresoEgreso(id) {
+    if (confirm('¿Desea eliminar este registro?')) {
+        try {
+            await fetch(`/api/ingresos-egresos/${id}`, { method: 'DELETE' });
+            showNotification('Registro eliminado');
+            loadIngresoEgreso();
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadSelectsForIngresoEgreso();
+    loadIngresoEgreso();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}Asignaciones de Personal - Control de Nómina en Obra{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-title">
+        📌 Asignaciones de Personal a Obras
+    </div>
+
+    <div style="margin-bottom: 20px;">
+        <button class="btn btn-primary" onclick="openAsignacionForm()">+ Nueva Asignación</button>
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Personal</th>
+                    <th>Obra</th>
+                    <th>Puesto</th>
+                    <th>Salario Diario</th>
+                    <th>Fecha Asignación</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="asignaciones-table">
+                <tr><td colspan="8" style="text-align: center;">Cargando...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal para formulario -->
+<div id="asignacion-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Nueva Asignación</h3>
+            <button class="modal-close" onclick="closeAsignacionForm()">×</button>
+        </div>
+        <form id="asignacion-form" onsubmit="saveAsignacion(event)">
+            <div class="form-group">
+                <label>Empleado *</label>
+                <select id="personal_id" required></select>
+            </div>
+            <div class="form-group">
+                <label>Obra *</label>
+                <select id="obra_id" required></select>
+            </div>
+            <div class="form-group">
+                <label>Puesto</label>
+                <input type="text" id="puesto">
+            </div>
+            <div class="form-group">
+                <label>Salario Diario ($)</label>
+                <input type="number" id="salario_diario" step="0.01">
+            </div>
+            <div class="form-group">
+                <label>Fecha de Asignación *</label>
+                <input type="date" id="fecha_asignacion" required>
+            </div>
+            <div class="form-group">
+                <label>Fecha de Fin</label>
+                <input type="date" id="fecha_fin">
+            </div>
+            <div class="btn-group">
+                <button type="submit" class="btn btn-primary">Guardar</button>
+                <button type="button" class="btn btn-secondary" onclick="closeAsignacionForm()">Cancelar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+async function loadSelects() {
+    try {
+        // Cargar personal
+        const personalRes = await fetch('/api/personal');
+        const personal = await personalRes.json();
+        const personalSelect = document.getElementById('personal_id');
+        personalSelect.innerHTML = '<option value="">-- Seleccione empleado --</option>';
+        personal.forEach(p => {
+            const option = document.createElement('option');
+            option.value = p.id;
+            option.textContent = `${p.nombre} ${p.apellido}`;
+            personalSelect.appendChild(option);
+        });
+
+        // Cargar obras
+        const obrasRes = await fetch('/api/obras');
+        const obras = await obrasRes.json();
+        const obraSelect = document.getElementById('obra_id');
+        obraSelect.innerHTML = '<option value="">-- Seleccione obra --</option>';
+        obras.forEach(o => {
+            const option = document.createElement('option');
+            option.value = o.id;
+            option.textContent = o.nombre;
+            obraSelect.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error cargando selects:', error);
+    }
+}
+
+function openAsignacionForm() {
+    loadSelects();
+    document.getElementById('asignacion-modal').classList.add('active');
+    document.getElementById('asignacion-form').reset();
+}
+
+function closeAsignacionForm() {
+    document.getElementById('asignacion-modal').classList.remove('active');
+}
+
+async function saveAsignacion(event) {
+    event.preventDefault();
+    
+    const data = {
+        personal_id: parseInt(document.getElementById('personal_id').value),
+        obra_id: parseInt(document.getElementById('obra_id').value),
+        puesto: document.getElementById('puesto').value,
+        salario_diario: document.getElementById('salario_diario').value,
+        fecha_asignacion: document.getElementById('fecha_asignacion').value,
+        fecha_fin: document.getElementById('fecha_fin').value
+    };
+
+    try {
+        await apiCall('/api/asignaciones', 'POST', data);
+        showNotification('Asignación creada exitosamente');
+        closeAsignacionForm();
+        loadAsignaciones();
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+async function loadAsignaciones() {
+    try {
+        const response = await fetch('/api/asignaciones');
+        const asignaciones = await response.json();
+        
+        const table = document.getElementById('asignaciones-table');
+        table.innerHTML = '';
+        
+        asignaciones.forEach(a => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${a.id}</td>
+                <td>${a.personal_nombre} ${a.personal_apellido}</td>
+                <td>${a.obra_nombre}</td>
+                <td>${a.puesto || '-'}</td>
+                <td>$${a.salario_diario || '-'}</td>
+                <td>${formatDate(a.fecha_asignacion)}</td>
+                <td>${a.estado || 'Activa'}</td>
+                <td>
+                    <button class="btn btn-small btn-primary" onclick="editAsignacion(${a.id})" title="Editar">✏️</button>
+                    <button class="btn btn-small btn-danger" onclick="deleteAsignacion(${a.id})" title="Eliminar">🗑️</button>
+                </td>
+            `;
+            table.appendChild(row);
+        });
+    } catch (error) {
+        console.error('Error cargando asignaciones:', error);
+    }
+}
+
+async function deleteAsignacion(id) {
+    if (confirm('¿Desea eliminar esta asignación?')) {
+        try {
+            await fetch(`/api/asignaciones/${id}`, { method: 'DELETE' });
+            showNotification('Asignación eliminada');
+            loadAsignaciones();
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    }
+}
+
+function editAsignacion(id) {
+    alert('Funcionalidad de edición disponible próximamente');
+}
+
+document.addEventListener('DOMContentLoaded', loadAsignaciones);
+</script>
+{% endblock %}

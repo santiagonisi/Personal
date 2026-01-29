@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Control de Nómina en Obra{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <h1>📊 Dashboard Principal</h1>
+    
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">👥</div>
+            <div class="stat-info">
+                <h3>Empleados</h3>
+                <p class="stat-number" id="total-personal">{{ total_personal }}</p>
+                <a href="/personal" class="stat-link">Ver todos →</a>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">🏗️</div>
+            <div class="stat-info">
+                <h3>Obras</h3>
+                <p class="stat-number" id="total-obras">{{ total_obras }}</p>
+                <a href="/obras" class="stat-link">Ver todas →</a>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">📌</div>
+            <div class="stat-info">
+                <h3>Asignaciones</h3>
+                <p class="stat-number" id="total-asignaciones">{{ total_asignaciones }}</p>
+                <a href="/asignaciones" class="stat-link">Ver todas →</a>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">⏱️</div>
+            <div class="stat-info">
+                <h3>Funciones</h3>
+                <p class="stat-number">6</p>
+                <p style="font-size: 12px; color: #666;">Presentismo, Entrada/Salida...</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="quick-actions">
+        <h2>Acciones Rápidas</h2>
+        <div class="action-buttons">
+            <a href="/personal?action=new" class="btn btn-primary">+ Nuevo Empleado</a>
+            <a href="/obras?action=new" class="btn btn-primary">+ Nueva Obra</a>
+            <a href="/asignaciones?action=new" class="btn btn-primary">+ Nueva Asignación</a>
+            <a href="/presentismo" class="btn btn-secondary">Registrar Presentismo</a>
+            <a href="/ingresos-egresos" class="btn btn-secondary">Registrar Entrada/Salida</a>
+        </div>
+    </div>
+
+</div>
+
+<style>
+    .dashboard {
+        padding: 20px;
+    }
+
+    .dashboard h1 {
+        text-align: center;
+        margin-bottom: 30px;
+        color: #333;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-bottom: 40px;
+    }
+
+    .stat-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 20px;
+        border-radius: 8px;
+        color: white;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    .stat-card:nth-child(2) {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .stat-card:nth-child(3) {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+
+    .stat-card:nth-child(4) {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+
+    .stat-icon {
+        font-size: 40px;
+    }
+
+    .stat-info h3 {
+        margin: 0;
+        font-size: 18px;
+    }
+
+    .stat-number {
+        font-size: 32px;
+        font-weight: bold;
+        margin: 5px 0;
+    }
+
+    .stat-link {
+        color: white;
+        text-decoration: none;
+        font-size: 12px;
+        opacity: 0.9;
+    }
+
+    .quick-actions {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .quick-actions h2 {
+        margin-top: 0;
+        color: #333;
+    }
+
+    .action-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .btn-primary {
+        background: #667eea;
+        color: white;
+    }
+
+    .btn-secondary {
+        background: #f5576c;
+        color: white;
+    }
+
+    .btn:hover {
+        opacity: 0.8;
+    }
+
+    .info-section {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .info-box {
+        background: #f8f9fa;
+        padding: 15px;
+        border-left: 4px solid #667eea;
+        border-radius: 4px;
+    }
+
+    .info-box ul {
+        margin: 10px 0;
+        padding-left: 20px;
+    }
+
+    .info-box li {
+        margin: 5px 0;
+    }
+</style>
+{% endblock %}
