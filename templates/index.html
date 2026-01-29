@@ -4,7 +4,9 @@
 
 {% block content %}
 <div class="dashboard">
-    <h1>📊 Dashboard Principal</h1>
+    <div style="text-align: center; margin-bottom: 30px;">
+        <img src="{{ url_for('static', filename='images/isologo IARSA.png') }}" alt="Logo IARSA" style="max-width: 200px; height: auto;">
+    </div>
     
     <div class="stats-grid">
         <div class="stat-card">
@@ -47,11 +49,11 @@
     <div class="quick-actions">
         <h2>Acciones Rápidas</h2>
         <div class="action-buttons">
-            <a href="/personal?action=new" class="btn btn-primary">+ Nuevo Empleado</a>
-            <a href="/obras?action=new" class="btn btn-primary">+ Nueva Obra</a>
-            <a href="/asignaciones?action=new" class="btn btn-primary">+ Nueva Asignación</a>
-            <a href="/presentismo" class="btn btn-secondary">Registrar Presentismo</a>
-            <a href="/ingresos-egresos" class="btn btn-secondary">Registrar Entrada/Salida</a>
+            <a href="/personal?action=new" class="btn btn-add">+ Nuevo Empleado</a>
+            <a href="/obras?action=new" class="btn btn-add">+ Nueva Obra</a>
+            <a href="/asignaciones?action=new" class="btn btn-add">+ Nueva Asignación</a>
+            <a href="/presentismo" class="btn btn-add">Registrar Presentismo</a>
+            <a href="/ingresos-egresos" class="btn btn-add">Registrar Entrada/Salida</a>
         </div>
     </div>
 
@@ -76,26 +78,26 @@
     }
 
     .stat-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #1a1a1a 0%, #d1a054 50%, #f9ca24 100%);
         padding: 20px;
         border-radius: 8px;
         color: white;
         display: flex;
         align-items: center;
         gap: 20px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
     }
 
     .stat-card:nth-child(2) {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        background: linear-gradient(135deg, #1a1a1a 0%, #d1a054 50%, #f9ca24 100%);
     }
 
     .stat-card:nth-child(3) {
-        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        background: linear-gradient(135deg, #1a1a1a 0%, #d1a054 50%, #f9ca24 100%);
     }
 
     .stat-card:nth-child(4) {
-        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        background: linear-gradient(135deg, #1a1a1a 0%, #d1a054 50%, #f9ca24 100%);
     }
 
     .stat-icon {
@@ -149,12 +151,13 @@
     }
 
     .btn-primary {
-        background: #667eea;
-        color: white;
+        background: linear-gradient(135deg, #d1a054 0%, #f9ca24 100%);
+        color: #1a1a1a;
+        font-weight: 600;
     }
 
     .btn-secondary {
-        background: #f5576c;
+        background: linear-gradient(135deg, #1a1a1a 0%, #d1a054 100%);
         color: white;
     }
 
@@ -172,7 +175,7 @@
     .info-box {
         background: #f8f9fa;
         padding: 15px;
-        border-left: 4px solid #667eea;
+        border-left: 4px solid #d1a054;
         border-radius: 4px;
     }
 

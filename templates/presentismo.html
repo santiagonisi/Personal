@@ -9,7 +9,7 @@
     </div>
 
     <div style="margin-bottom: 20px;">
-        <button class="btn btn-primary" onclick="openPresentismoForm()">+ Registrar Presentismo</button>
+        <button class="btn btn-add" onclick="openPresentismoForm()">+ Registrar Presentismo</button>
     </div>
 
     <div style="margin-bottom: 20px; display: flex; gap: 10px;">
@@ -17,7 +17,7 @@
         <select id="obra_filtro" style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
             <option value="">-- Todas las obras --</option>
         </select>
-        <button class="btn btn-secondary" onclick="filterPresentismo()">Filtrar</button>
+        <button class="btn btn-edit" onclick="filterPresentismo()">Filtrar</button>
     </div>
 
     <div style="overflow-x: auto;">
@@ -81,8 +81,8 @@
                 <textarea id="notas"></textarea>
             </div>
             <div class="btn-group">
-                <button type="submit" class="btn btn-primary">Guardar</button>
-                <button type="button" class="btn btn-secondary" onclick="closePresentismoForm()">Cancelar</button>
+                <button type="submit" class="btn btn-success">Guardar</button>
+                <button type="button" class="btn btn-cancel" onclick="closePresentismoForm()">Cancelar</button>
             </div>
         </form>
     </div>
@@ -188,7 +188,7 @@ async function loadPresentismo() {
                 <td>${tipoDisplay[p.tipo] || p.tipo}</td>
                 <td>${p.descripcion || '-'}</td>
                 <td>
-                    <button class="btn btn-small btn-danger" onclick="deletePresentismo(${p.id})" title="Eliminar">🗑️</button>
+                    <button class="btn btn-small btn-delete" onclick="deletePresentismo(${p.id})" title="Eliminar">🗑️</button>
                 </td>
             `;
             table.appendChild(row);
@@ -224,7 +224,7 @@ async function filterPresentismo() {
                 <td>${p.tipo}</td>
                 <td>${p.descripcion || '-'}</td>
                 <td>
-                    <button class="btn btn-small btn-danger" onclick="deletePresentismo(${p.id})" title="Eliminar">🗑️</button>
+                    <button class="btn btn-small btn-delete" onclick="deletePresentismo(${p.id})" title="Eliminar">🗑️</button>
                 </td>
             `;
             table.appendChild(row);

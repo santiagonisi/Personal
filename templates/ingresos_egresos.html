@@ -9,7 +9,7 @@
     </div>
 
     <div style="margin-bottom: 20px;">
-        <button class="btn btn-primary" onclick="openIngresoEgresoForm()">+ Registrar Entrada/Salida</button>
+        <button class="btn btn-add" onclick="openIngresoEgresoForm()">+ Registrar Entrada/Salida</button>
     </div>
 
     <div style="margin-bottom: 20px; display: flex; gap: 10px;">
@@ -17,7 +17,7 @@
         <select id="obra_filtro" style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
             <option value="">-- Todas las obras --</option>
         </select>
-        <button class="btn btn-secondary" onclick="filterIngresoEgreso()">Filtrar</button>
+        <button class="btn btn-edit" onclick="filterIngresoEgreso()">Filtrar</button>
     </div>
 
     <div style="overflow-x: auto;">
@@ -78,8 +78,8 @@
                 <textarea id="notas"></textarea>
             </div>
             <div class="btn-group">
-                <button type="submit" class="btn btn-primary">Guardar</button>
-                <button type="button" class="btn btn-secondary" onclick="closeIngresoEgresoForm()">Cancelar</button>
+                <button type="submit" class="btn btn-success">Guardar</button>
+                <button type="button" class="btn btn-cancel" onclick="closeIngresoEgresoForm()">Cancelar</button>
             </div>
         </form>
     </div>
@@ -179,7 +179,7 @@ async function loadIngresoEgreso() {
                 <td>${formatTime(r.hora_egreso) || '-'}</td>
                 <td>${r.horas_trabajadas || '-'} hs</td>
                 <td>
-                    <button class="btn btn-small btn-danger" onclick="deleteIngresoEgreso(${r.id})" title="Eliminar">🗑️</button>
+                    <button class="btn btn-small btn-delete" onclick="deleteIngresoEgreso(${r.id})" title="Eliminar">🗑️</button>
                 </td>
             `;
             table.appendChild(row);
@@ -215,7 +215,7 @@ async function filterIngresoEgreso() {
                 <td>${formatTime(r.hora_egreso) || '-'}</td>
                 <td>${r.horas_trabajadas || '-'} hs</td>
                 <td>
-                    <button class="btn btn-small btn-danger" onclick="deleteIngresoEgreso(${r.id})" title="Eliminar">🗑️</button>
+                    <button class="btn btn-small btn-delete" onclick="deleteIngresoEgreso(${r.id})" title="Eliminar">🗑️</button>
                 </td>
             `;
             table.appendChild(row);

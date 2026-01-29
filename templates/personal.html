@@ -9,7 +9,7 @@
     </div>
 
     <div style="margin-bottom: 20px;">
-        <button class="btn btn-primary" onclick="openPersonalForm()">+ Nuevo Empleado</button>
+        <button class="btn btn-add" onclick="openPersonalForm()">+ Nuevo Empleado</button>
     </div>
 
     <div style="overflow-x: auto;">
@@ -87,8 +87,8 @@
                 <input type="date" id="fecha_ingreso" required>
             </div>
             <div class="btn-group">
-                <button type="submit" class="btn btn-primary">Guardar</button>
-                <button type="button" class="btn btn-secondary" onclick="closePersonalForm()">Cancelar</button>
+                <button type="submit" class="btn btn-success">Guardar</button>
+                <button type="button" class="btn btn-cancel" onclick="closePersonalForm()">Cancelar</button>
             </div>
         </form>
     </div>
@@ -151,8 +151,8 @@ async function loadPersonal() {
                 <td>${formatDate(p.fecha_ingreso)}</td>
                 <td>${p.estado || 'Activo'}</td>
                 <td>
-                    <button class="btn btn-small btn-primary" onclick="editPersonal(${p.id})" title="Editar">✏️</button>
-                    <button class="btn btn-small btn-danger" onclick="deletePersonal(${p.id})" title="Eliminar">🗑️</button>
+                    <button class="btn btn-small btn-edit" onclick="editPersonal(${p.id})" title="Editar">✏️</button>
+                    <button class="btn btn-small btn-delete" onclick="deletePersonal(${p.id})" title="Eliminar">🗑️</button>
                 </td>
             `;
             table.appendChild(row);

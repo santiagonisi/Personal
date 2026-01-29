@@ -9,7 +9,7 @@
     </div>
 
     <div style="margin-bottom: 20px;">
-        <button class="btn btn-primary" onclick="openObraForm()">+ Nueva Obra</button>
+        <button class="btn btn-add" onclick="openObraForm()">+ Nueva Obra</button>
     </div>
 
     <div style="overflow-x: auto;">
@@ -66,8 +66,8 @@
                 <input type="date" id="fecha_fin_estimada">
             </div>
             <div class="btn-group">
-                <button type="submit" class="btn btn-primary">Guardar</button>
-                <button type="button" class="btn btn-secondary" onclick="closeObraForm()">Cancelar</button>
+                <button type="submit" class="btn btn-success">Guardar</button>
+                <button type="button" class="btn btn-cancel" onclick="closeObraForm()">Cancelar</button>
             </div>
         </form>
     </div>
@@ -124,8 +124,8 @@ async function loadObras() {
                 <td>${formatDate(o.fecha_fin_estimada)}</td>
                 <td>${o.estado || 'Activa'}</td>
                 <td>
-                    <button class="btn btn-small btn-primary" onclick="editObra(${o.id})" title="Editar">✏️</button>
-                    <button class="btn btn-small btn-danger" onclick="deleteObra(${o.id})" title="Eliminar">🗑️</button>
+                    <button class="btn btn-small btn-edit" onclick="editObra(${o.id})" title="Editar">✏️</button>
+                    <button class="btn btn-small btn-delete" onclick="deleteObra(${o.id})" title="Eliminar">🗑️</button>
                 </td>
             `;
             table.appendChild(row);

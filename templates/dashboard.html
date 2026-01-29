@@ -4,7 +4,9 @@
 
 {% block content %}
 <div class="dashboard">
-    <h1>📊 Dashboard Principal</h1>
+    <div style="text-align: center; margin-bottom: 30px;">
+        <img src="{{ url_for('static', filename='images/isologo IARSA.png') }}" alt="Logo IARSA" style="max-width: 200px; height: auto;">
+    </div>
     
     <div class="stats-grid">
         <div class="stat-card">
@@ -76,26 +78,26 @@
     }
 
     .stat-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #1a1a1a 0%, #d1a054 50%, #f9ca24 100%);
         padding: 20px;
         border-radius: 8px;
         color: white;
         display: flex;
         align-items: center;
         gap: 20px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
     }
 
     .stat-card:nth-child(2) {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        background: linear-gradient(135deg, #1a1a1a 0%, #d1a054 50%, #f9ca24 100%);
     }
 
     .stat-card:nth-child(3) {
-        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        background: linear-gradient(135deg, #1a1a1a 0%, #d1a054 50%, #f9ca24 100%);
     }
 
     .stat-card:nth-child(4) {
-        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        background: linear-gradient(135deg, #1a1a1a 0%, #d1a054 50%, #f9ca24 100%);
     }
 
     .stat-icon {
