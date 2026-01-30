@@ -102,7 +102,7 @@ class Presentismo(db.Model):
     personal_id = db.Column(db.Integer, db.ForeignKey('personal.id'), nullable=False)
     obra_id = db.Column(db.Integer, db.ForeignKey('obras.id'), nullable=False)
     fecha = db.Column(db.String(10), nullable=False)
-    tipo = db.Column(db.String(50), nullable=False)  # presente, ausente_justificado, ausente_sin_aviso, art, vacacion, franco
+    tipo = db.Column(db.String(50), nullable=False)
     descripcion = db.Column(db.Text)
     notas = db.Column(db.Text)
     fecha_creacion = db.Column(db.DateTime, default=datetime.now)

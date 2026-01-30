@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, jsonify, redirect, url_fo
 from models import Personal, Obra, Asignacion, Presentismo, IngresoEgreso
 from app import db
 
-# Blueprint principal
+
 main_bp = Blueprint('main', __name__)
 
 @main_bp.route('/')
@@ -40,7 +40,6 @@ def ingresos_egresos_page():
     return render_template('ingresos_egresos.html')
 
 
-# Blueprint Personal
 personal_bp = Blueprint('personal', __name__, url_prefix='/api/personal')
 
 @personal_bp.route('', methods=['GET'])
@@ -115,7 +114,6 @@ def eliminar_personal(id):
     return jsonify({'mensaje': 'Eliminado'})
 
 
-# Blueprint Obras
 obras_bp = Blueprint('obras', __name__, url_prefix='/api/obras')
 
 @obras_bp.route('', methods=['GET'])
@@ -171,7 +169,6 @@ def eliminar_obra(id):
     return jsonify({'mensaje': 'Eliminado'})
 
 
-# Blueprint Asignaciones
 asignaciones_bp = Blueprint('asignaciones', __name__, url_prefix='/api/asignaciones')
 
 @asignaciones_bp.route('', methods=['GET'])
@@ -218,7 +215,6 @@ def eliminar_asignacion(id):
     return jsonify({'mensaje': 'Eliminado'})
 
 
-# Blueprint Presentismo
 presentismo_bp = Blueprint('presentismo', __name__, url_prefix='/api/presentismo')
 
 @presentismo_bp.route('', methods=['GET'])
@@ -276,7 +272,6 @@ def eliminar_presentismo(id):
     return jsonify({'mensaje': 'Eliminado'})
 
 
-# Blueprint Ingresos/Egresos
 ingresos_egresos_bp = Blueprint('ingresos_egresos', __name__, url_prefix='/api/ingresos-egresos')
 
 @ingresos_egresos_bp.route('', methods=['GET'])

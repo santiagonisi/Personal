@@ -41,7 +41,6 @@
     </div>
 </div>
 
-<!-- Modal para formulario -->
 <div id="ingreso-egreso-modal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -88,7 +87,6 @@
 <script>
 async function loadSelectsForIngresoEgreso() {
     try {
-        // Cargar personal
         const personalRes = await fetch('/api/personal');
         const personal = await personalRes.json();
         const personalSelect = document.getElementById('personal_id');
@@ -100,7 +98,6 @@ async function loadSelectsForIngresoEgreso() {
             personalSelect.appendChild(option);
         });
 
-        // Cargar obras
         const obrasRes = await fetch('/api/obras');
         const obras = await obrasRes.json();
         const obraSelect = document.getElementById('obra_id');
