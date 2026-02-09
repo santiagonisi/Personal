@@ -1,4 +1,5 @@
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for
+from flask_login import login_required, current_user
 from models import Personal, Obra, Asignacion, Presentismo, IngresoEgreso
 from app import db
 
@@ -7,9 +8,12 @@ main_bp = Blueprint('main', __name__)
 
 @main_bp.route('/')
 def index():
-    return render_template('index.html')
+    if current_user.is_authenticated:
+        return redirect(url_for('main.dashboard'))
+    return redirect(url_for('auth.login'))
 
 @main_bp.route('/dashboard')
+@login_required
 def dashboard():
     total_personal = Personal.query.count()
     total_obras = Obra.query.count()
@@ -20,22 +24,27 @@ def dashboard():
                          total_asignaciones=total_asignaciones)
 
 @main_bp.route('/personal')
+@login_required
 def personal_page():
     return render_template('personal.html')
 
 @main_bp.route('/obras')
+@login_required
 def obras_page():
     return render_template('obras.html')
 
 @main_bp.route('/asignaciones')
+@login_required
 def asignaciones_page():
     return render_template('asignaciones.html')
 
 @main_bp.route('/presentismo')
+@login_required
 def presentismo_page():
     return render_template('presentismo.html')
 
 @main_bp.route('/ingresos-egresos')
+@login_required
 def ingresos_egresos_page():
     return render_template('ingresos_egresos.html')
 
@@ -329,3 +338,6 @@ def eliminar_ingreso_egreso(id):
     db.session.delete(registro)
     db.session.commit()
     return jsonify({'mensaje': 'Eliminado'})
+
+from routes.auth import auth_bp
+from routes.admin import admin_bp

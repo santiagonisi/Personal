@@ -9,10 +9,10 @@
 <body>
     <nav class="navbar">
         <div class="nav-container">
-            <a href="/" class="nav-logo">📋 Control Nómina Obra</a>
+            
             <ul class="nav-menu">
                 <li class="nav-item">
-                    <a href="/" class="nav-link">Inicio</a>
+                    <a href="/dashboard" class="nav-link">Inicio</a>
                 </li>
                 <li class="nav-item">
                     <a href="/personal" class="nav-link">Personal</a>
@@ -28,6 +28,19 @@
                 </li>
                 <li class="nav-item">
                     <a href="/ingresos-egresos" class="nav-link">Entrada/Salida</a>
+                </li>
+                {% if current_user.is_authenticated and current_user.es_admin() %}
+                <li class="nav-item">
+                    <a href="/admin/usuarios" class="nav-link" style="text-decoration: underline;">⚙️ Admin</a>
+                </li>
+                {% endif %}
+                <li class="nav-item" style="margin-left: auto;">
+                    <span class="nav-user">
+                        {% if current_user.is_authenticated %}
+                            👤 {{ current_user.nombre }} ({{ current_user.rol }})
+                            <a href="/logout" class="nav-logout">Salir</a>
+                        {% endif %}
+                    </span>
                 </li>
             </ul>
         </div>

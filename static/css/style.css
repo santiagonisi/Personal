@@ -56,6 +56,26 @@ body {
     opacity: 1;
 }
 
+.nav-user {
+    color: #6c757d;
+    font-size: 13px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.nav-logout {
+    color: #f44336;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.15s ease;
+}
+
+.nav-logout:hover {
+    color: #da190b;
+}
+
 .container {
     max-width: 1200px;
     margin: 20px auto;
@@ -472,4 +492,68 @@ textarea {
     content: "";
     display: table;
     clear: both;
+}
+
+/* Dashboard Cards - Nuevo estilo */
+.dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 25px;
+    margin-bottom: 30px;
+}
+
+.card {
+    background: #fff;
+    border: 1px solid #e2e4e8;
+    border-radius: 16px;
+    padding: 28px 22px;
+    text-align: left;
+    transition: all 0.25s ease;
+}
+
+.card:hover {
+    border-color: #facc15;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+    transform: translateY(-4px);
+}
+
+.icon {
+    font-size: 30px;
+    margin-bottom: 14px;
+    color: #555;
+}
+
+.card h2 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #333;
+}
+
+.card p {
+    font-size: 13px;
+    color: #666;
+    line-height: 1.4;
+}
+
+a.card-link {
+    text-decoration: none;
+    color: inherit;
+}
+
+/* Estilos para tarjetas con tablas */
+.table-card {
+    background: linear-gradient(135deg, rgba(26, 26, 26, 0.05) 0%, rgba(209, 160, 84, 0.1) 50%, rgba(249, 202, 36, 0.05) 100%);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    padding: 20px;
+    margin-bottom: 20px;
+    border-left: 4px solid #d1a054;
+}
+
+.card-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 15px;
+    color: #333;
 }

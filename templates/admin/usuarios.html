@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Administración de Usuarios - Control de Nómina en Obra{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-title">
+        ⚙️ Gestión de Usuarios
+    </div>
+
+    <div style="margin-bottom: 20px;">
+        <a href="/admin/crear-usuario" class="btn btn-primary">+ Crear nuevo usuario</a>
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Email</th>
+                    <th>Nombre</th>
+                    <th>Apellido</th>
+                    <th>Rol</th>
+                    <th>Estado</th>
+                    <th>Fecha Creación</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for usuario in usuarios %}
+                <tr>
+                    <td>{{ usuario.id }}</td>
+                    <td>{{ usuario.email }}</td>
+                    <td>{{ usuario.nombre }}</td>
+                    <td>{{ usuario.apellido }}</td>
+                    <td>
+                        {% if usuario.id == current_user.id %}
+                            <span style="background: #667eea; color: white; padding: 5px 10px; border-radius: 3px;">{{ usuario.rol }}</span>
+                        {% else %}
+                            <form style="display: inline;" method="POST">
+                                <input type="hidden" name="action" value="cambiar_rol">
+                                <input type="hidden" name="user_id" value="{{ usuario.id }}">
+                                <select name="rol" onchange="this.form.submit()" style="padding: 5px; border-radius: 3px;">
+                                    <option value="en_obra" {% if usuario.rol == 'en_obra' %}selected{% endif %}>En Obra</option>
+                                    <option value="admin" {% if usuario.rol == 'admin' %}selected{% endif %}>Administrador</option>
+                                </select>
+                            </form>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if usuario.activo %}
+                            <span style="background: #4caf50; color: white; padding: 5px 10px; border-radius: 3px;">Activo</span>
+                        {% else %}
+                            <span style="background: #f44336; color: white; padding: 5px 10px; border-radius: 3px;">Inactivo</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ usuario.fecha_creacion.strftime('%d/%m/%Y %H:%M') if usuario.fecha_creacion else '-' }}</td>
+                    <td>
+                        {% if usuario.id != current_user.id %}
+                            <form style="display: inline;" method="POST">
+                                <input type="hidden" name="action" value="activar_desactivar">
+                                <input type="hidden" name="user_id" value="{{ usuario.id }}">
+                                {% if usuario.activo %}
+                                    <button type="submit" class="btn btn-small btn-delete">Desactivar</button>
+                                {% else %}
+                                    <button type="submit" class="btn btn-small btn-edit">Activar</button>
+                                {% endif %}
+                            </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" style="text-align: center; color: #999;">No hay usuarios registrados</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
