@@ -4,8 +4,8 @@
 
 {% block content %}
 <!-- Logo -->
-<div style="text-align: center; margin-bottom: 30px;">
-    <img src="{{ url_for('static', filename='images/isologo IARSA.png') }}" alt="Logo IARSA" style="max-width: 200px; height: auto;">
+<div class="dashboard-logo">
+  <img src="{{ url_for('static', filename='images/isologo IARSA.png') }}" alt="Logo IARSA" class="dashboard-logo-img">
 </div>
 
 <!-- Cards de Navegación -->
@@ -45,8 +45,8 @@
 
 <!-- Acciones Rápidas Centradas -->
 <div class="quick-actions">
-    <h2 style="text-align: center;">Acciones Rápidas</h2>
-    <div class="action-buttons" style="justify-content: center;">
+  <h2 class="quick-actions-title">Acciones Rápidas</h2>
+  <div class="action-buttons">
         <a href="/personal" class="btn btn-primary">+ Nuevo Empleado</a>
         <a href="/obras" class="btn btn-primary">+ Nueva Obra</a>
         <a href="/asignaciones" class="btn btn-primary">+ Nueva Asignación</a>

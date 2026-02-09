@@ -30,19 +30,23 @@
                     <a href="/ingresos-egresos" class="nav-link">Entrada/Salida</a>
                 </li>
                 {% if current_user.is_authenticated and current_user.es_admin() %}
-                <li class="nav-item">
-                    <a href="/admin/usuarios" class="nav-link" style="text-decoration: underline;">⚙️ Admin</a>
+                <li class="nav-item nav-admin-link">
+                    <a href="/admin/usuarios" class="nav-link">⚙️ Admin</a>
                 </li>
                 {% endif %}
-                <li class="nav-item" style="margin-left: auto;">
-                    <span class="nav-user">
-                        {% if current_user.is_authenticated %}
-                            👤 {{ current_user.nombre }} ({{ current_user.rol }})
-                            <a href="/logout" class="nav-logout">Salir</a>
-                        {% endif %}
-                    </span>
-                </li>
             </ul>
+            {% if current_user.is_authenticated %}
+            <div class="nav-user-wrapper">
+                <span class="nav-user">
+                    <span class="nav-avatar">👤</span>
+                    <span class="nav-user-info">
+                        <span class="nav-user-name">{{ current_user.nombre }}</span>
+                        <span class="nav-user-role">{{ current_user.rol }}</span>
+                    </span>
+                    <a href="/logout" class="nav-logout">Salir</a>
+                </span>
+            </div>
+            {% endif %}
         </div>
     </nav>
 

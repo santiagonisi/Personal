@@ -8,8 +8,9 @@
         ⚙️ Gestión de Usuarios
     </div>
 
-    <div style="margin-bottom: 20px;">
-        <a href="/admin/crear-usuario" class="btn btn-primary">+ Crear nuevo usuario</a>
+    <div class="admin-tools-inline">
+        <a href="/admin/crear-usuario" class="btn admin-tool-btn">+ Crear nuevo usuario</a>
+        <a href="/dashboard" class="btn admin-tool-btn">Volver al Dashboard</a>
     </div>
 
     <div style="overflow-x: auto;">
@@ -27,6 +28,7 @@
                 </tr>
             </thead>
             <tbody>
+                
                 {% for usuario in usuarios %}
                 <tr>
                     <td>{{ usuario.id }}</td>
@@ -55,17 +57,19 @@
                         {% endif %}
                     </td>
                     <td>{{ usuario.fecha_creacion.strftime('%d/%m/%Y %H:%M') if usuario.fecha_creacion else '-' }}</td>
-                    <td>
+                    <td class="admin-actions-cell">
                         {% if usuario.id != current_user.id %}
+                        <div class="admin-actions">
                             <form style="display: inline;" method="POST">
                                 <input type="hidden" name="action" value="activar_desactivar">
                                 <input type="hidden" name="user_id" value="{{ usuario.id }}">
                                 {% if usuario.activo %}
-                                    <button type="submit" class="btn btn-small btn-delete">Desactivar</button>
+                                    <button type="submit" class="admin-action-btn admin-action-btn--off">Desactivar</button>
                                 {% else %}
-                                    <button type="submit" class="btn btn-small btn-edit">Activar</button>
+                                    <button type="submit" class="admin-action-btn admin-action-btn--on">Activar</button>
                                 {% endif %}
                             </form>
+                        </div>
                         {% endif %}
                     </td>
                 </tr>
