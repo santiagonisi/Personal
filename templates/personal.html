@@ -8,9 +8,11 @@
         👥 Gestión de Personal
     </div>
 
+    {% if current_user.es_admin() %}
     <div style="margin-bottom: 20px;">
         <button class="btn btn-add" onclick="openPersonalForm()">+ Nuevo Empleado</button>
     </div>
+    {% endif %}
 
     <div style="overflow-x: auto;">
         <table>
@@ -37,10 +39,11 @@
 <div id="personal-modal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Nuevo Empleado</h3>
+            <h3 id="modal-title">Nuevo Empleado</h3>
             <button class="modal-close" onclick="closePersonalForm()">×</button>
         </div>
         <form id="personal-form" onsubmit="savePersonal(event)">
+            <input type="hidden" id="personal-id">
             <div class="form-group">
                 <label>Nombre *</label>
                 <input type="text" id="nombre" required>
@@ -94,13 +97,19 @@
 </div>
 
 <script>
+let editingId = null;
+
 function openPersonalForm() {
+    editingId = null;
+    document.getElementById('personal-id').value = '';
+    document.getElementById('modal-title').textContent = 'Nuevo Empleado';
     document.getElementById('personal-modal').classList.add('active');
     document.getElementById('personal-form').reset();
 }
 
 function closePersonalForm() {
     document.getElementById('personal-modal').classList.remove('active');
+    editingId = null;
 }
 
 async function savePersonal(event) {
@@ -121,12 +130,27 @@ async function savePersonal(event) {
     };
 
     try {
-        const result = await apiCall('/api/personal', 'POST', data);
-        showNotification('Empleado creado exitosamente');
+        const id = document.getElementById('personal-id').value;
+        if (id) {
+            // Editar
+            const response = await fetch(`/api/personal/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (response.ok) {
+                showNotification('Empleado actualizado exitosamente');
+            }
+        } else {
+            // Crear
+            const result = await apiCall('/api/personal', 'POST', data);
+            showNotification('Empleado creado exitosamente');
+        }
         closePersonalForm();
         loadPersonal();
     } catch (error) {
         console.error('Error:', error);
+        showNotification('Error al guardar empleado', 'error');
     }
 }
 
@@ -150,14 +174,45 @@ async function loadPersonal() {
                 <td>${formatDate(p.fecha_ingreso)}</td>
                 <td>${p.estado || 'Activo'}</td>
                 <td>
+                    {% if current_user.es_admin() %}
                     <button class="btn btn-small btn-edit" onclick="editPersonal(${p.id})" title="Editar">✏️</button>
                     <button class="btn btn-small btn-delete" onclick="deletePersonal(${p.id})" title="Eliminar">🗑️</button>
+                    {% else %}
+                    -
+                    {% endif %}
                 </td>
             `;
             table.appendChild(row);
         });
     } catch (error) {
         console.error('Error cargando personal:', error);
+    }
+}
+
+async function editPersonal(id) {
+    try {
+        const response = await fetch(`/api/personal/${id}`);
+        const personal = await response.json();
+        
+        document.getElementById('personal-id').value = personal.id;
+        document.getElementById('nombre').value = personal.nombre;
+        document.getElementById('apellido').value = personal.apellido;
+        document.getElementById('dni').value = personal.dni || '';
+        document.getElementById('email').value = personal.email || '';
+        document.getElementById('telefono').value = personal.telefono || '';
+        document.getElementById('fecha_nacimiento').value = personal.fecha_nacimiento || '';
+        document.getElementById('domicilio').value = personal.domicilio || '';
+        document.getElementById('ciudad').value = personal.ciudad || '';
+        document.getElementById('provincia').value = personal.provincia || '';
+        document.getElementById('codigo_postal').value = personal.codigo_postal || '';
+        document.getElementById('fecha_ingreso').value = personal.fecha_ingreso || '';
+        
+        document.getElementById('modal-title').textContent = 'Editar Empleado';
+        document.getElementById('personal-modal').classList.add('active');
+        editingId = id;
+    } catch (error) {
+        console.error('Error cargando empleado:', error);
+        showNotification('Error al cargar empleado', 'error');
     }
 }
 
@@ -171,10 +226,6 @@ async function deletePersonal(id) {
             console.error('Error:', error);
         }
     }
-}
-
-function editPersonal(id) {
-    alert('Funcionalidad de edición disponible próximamente');
 }
 
 document.addEventListener('DOMContentLoaded', loadPersonal);

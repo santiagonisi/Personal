@@ -29,11 +29,6 @@
                 <li class="nav-item">
                     <a href="/ingresos-egresos" class="nav-link">Entrada/Salida</a>
                 </li>
-                {% if current_user.is_authenticated and current_user.es_admin() %}
-                <li class="nav-item nav-admin-link">
-                    <a href="/admin/usuarios" class="nav-link">⚙️ Admin</a>
-                </li>
-                {% endif %}
             </ul>
             {% if current_user.is_authenticated %}
             <div class="nav-user-wrapper">

@@ -8,9 +8,11 @@
         📌 Asignaciones de Personal a Obras
     </div>
 
+    {% if current_user.es_admin() %}
     <div style="margin-bottom: 20px;">
         <button class="btn btn-add" onclick="openAsignacionForm()">+ Nueva Asignación</button>
     </div>
+    {% endif %}
 
     <div style="overflow-x: auto;">
         <table>
@@ -36,10 +38,11 @@
 <div id="asignacion-modal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Nueva Asignación</h3>
+            <h3 id="modal-title">Nueva Asignación</h3>
             <button class="modal-close" onclick="closeAsignacionForm()">×</button>
         </div>
         <form id="asignacion-form" onsubmit="saveAsignacion(event)">
+            <input type="hidden" id="asignacion-id">
             <div class="form-group">
                 <label>Empleado *</label>
                 <select id="personal_id" required></select>
@@ -73,6 +76,8 @@
 </div>
 
 <script>
+let editingId = null;
+
 async function loadSelects() {
     try {
         const personalRes = await fetch('/api/personal');
@@ -102,6 +107,9 @@ async function loadSelects() {
 }
 
 function openAsignacionForm() {
+    editingId = null;
+    document.getElementById('asignacion-id').value = '';
+    document.getElementById('modal-title').textContent = 'Nueva Asignación';
     loadSelects();
     document.getElementById('asignacion-modal').classList.add('active');
     document.getElementById('asignacion-form').reset();
@@ -109,6 +117,7 @@ function openAsignacionForm() {
 
 function closeAsignacionForm() {
     document.getElementById('asignacion-modal').classList.remove('active');
+    editingId = null;
 }
 
 async function saveAsignacion(event) {
@@ -124,12 +133,27 @@ async function saveAsignacion(event) {
     };
 
     try {
-        await apiCall('/api/asignaciones', 'POST', data);
-        showNotification('Asignación creada exitosamente');
+        const id = document.getElementById('asignacion-id').value;
+        if (id) {
+            // Editar
+            const response = await fetch(`/api/asignaciones/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (response.ok) {
+                showNotification('Asignación actualizada exitosamente');
+            }
+        } else {
+            // Crear
+            await apiCall('/api/asignaciones', 'POST', data);
+            showNotification('Asignación creada exitosamente');
+        }
         closeAsignacionForm();
         loadAsignaciones();
     } catch (error) {
         console.error('Error:', error);
+        showNotification('Error al guardar asignación', 'error');
     }
 }
 
@@ -152,14 +176,44 @@ async function loadAsignaciones() {
                 <td>${formatDate(a.fecha_asignacion)}</td>
                 <td>${a.estado || 'Activa'}</td>
                 <td>
+                    {% if current_user.es_admin() %}
                     <button class="btn btn-small btn-edit" onclick="editAsignacion(${a.id})" title="Editar">✏️</button>
                     <button class="btn btn-small btn-delete" onclick="deleteAsignacion(${a.id})" title="Eliminar">🗑️</button>
+                    {% else %}
+                    -
+                    {% endif %}
                 </td>
             `;
             table.appendChild(row);
         });
     } catch (error) {
         console.error('Error cargando asignaciones:', error);
+    }
+}
+
+async function editAsignacion(id) {
+    try {
+        // Cargar los selects primero
+        await loadSelects();
+        
+        // Luego cargar los datos de la asignación
+        const response = await fetch(`/api/asignaciones/${id}`);
+        const asignacion = await response.json();
+        
+        document.getElementById('asignacion-id').value = asignacion.id;
+        document.getElementById('personal_id').value = asignacion.personal_id;
+        document.getElementById('obra_id').value = asignacion.obra_id;
+        document.getElementById('puesto').value = asignacion.puesto || '';
+        document.getElementById('salario_diario').value = asignacion.salario_diario || '';
+        document.getElementById('fecha_asignacion').value = asignacion.fecha_asignacion || '';
+        document.getElementById('fecha_fin').value = asignacion.fecha_fin || '';
+        
+        document.getElementById('modal-title').textContent = 'Editar Asignación';
+        document.getElementById('asignacion-modal').classList.add('active');
+        editingId = id;
+    } catch (error) {
+        console.error('Error cargando asignación:', error);
+        showNotification('Error al cargar asignación', 'error');
     }
 }
 
@@ -173,10 +227,6 @@ async function deleteAsignacion(id) {
             console.error('Error:', error);
         }
     }
-}
-
-function editAsignacion(id) {
-    alert('Funcionalidad de edición disponible próximamente');
 }
 
 document.addEventListener('DOMContentLoaded', loadAsignaciones);

@@ -8,9 +8,11 @@
         🏗️ Gestión de Obras
     </div>
 
+    {% if current_user.es_admin() %}
     <div style="margin-bottom: 20px;">
         <button class="btn btn-add" onclick="openObraForm()">+ Nueva Obra</button>
     </div>
+    {% endif %}
 
     <div style="overflow-x: auto;">
         <table>
@@ -36,10 +38,11 @@
 <div id="obra-modal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Nueva Obra</h3>
+            <h3 id="modal-title">Nueva Obra</h3>
             <button class="modal-close" onclick="closeObraForm()">×</button>
         </div>
         <form id="obra-form" onsubmit="saveObra(event)">
+            <input type="hidden" id="obra-id">
             <div class="form-group">
                 <label>Nombre *</label>
                 <input type="text" id="nombre" required>
@@ -73,13 +76,19 @@
 </div>
 
 <script>
+let editingId = null;
+
 function openObraForm() {
+    editingId = null;
+    document.getElementById('obra-id').value = '';
+    document.getElementById('modal-title').textContent = 'Nueva Obra';
     document.getElementById('obra-modal').classList.add('active');
     document.getElementById('obra-form').reset();
 }
 
 function closeObraForm() {
     document.getElementById('obra-modal').classList.remove('active');
+    editingId = null;
 }
 
 async function saveObra(event) {
@@ -95,12 +104,27 @@ async function saveObra(event) {
     };
 
     try {
-        await apiCall('/api/obras', 'POST', data);
-        showNotification('Obra creada exitosamente');
+        const id = document.getElementById('obra-id').value;
+        if (id) {
+            // Editar
+            const response = await fetch(`/api/obras/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (response.ok) {
+                showNotification('Obra actualizada exitosamente');
+            }
+        } else {
+            // Crear
+            await apiCall('/api/obras', 'POST', data);
+            showNotification('Obra creada exitosamente');
+        }
         closeObraForm();
         loadObras();
     } catch (error) {
         console.error('Error:', error);
+        showNotification('Error al guardar obra', 'error');
     }
 }
 
@@ -123,14 +147,40 @@ async function loadObras() {
                 <td>${formatDate(o.fecha_fin_estimada)}</td>
                 <td>${o.estado || 'Activa'}</td>
                 <td>
+                    {% if current_user.es_admin() %}
                     <button class="btn btn-small btn-edit" onclick="editObra(${o.id})" title="Editar">✏️</button>
                     <button class="btn btn-small btn-delete" onclick="deleteObra(${o.id})" title="Eliminar">🗑️</button>
+                    {% else %}
+                    -
+                    {% endif %}
                 </td>
             `;
             table.appendChild(row);
         });
     } catch (error) {
         console.error('Error cargando obras:', error);
+    }
+}
+
+async function editObra(id) {
+    try {
+        const response = await fetch(`/api/obras/${id}`);
+        const obra = await response.json();
+        
+        document.getElementById('obra-id').value = obra.id;
+        document.getElementById('nombre').value = obra.nombre;
+        document.getElementById('descripcion').value = obra.descripcion || '';
+        document.getElementById('ubicacion').value = obra.ubicacion || '';
+        document.getElementById('responsable').value = obra.responsable || '';
+        document.getElementById('fecha_inicio').value = obra.fecha_inicio || '';
+        document.getElementById('fecha_fin_estimada').value = obra.fecha_fin_estimada || '';
+        
+        document.getElementById('modal-title').textContent = 'Editar Obra';
+        document.getElementById('obra-modal').classList.add('active');
+        editingId = id;
+    } catch (error) {
+        console.error('Error cargando obra:', error);
+        showNotification('Error al cargar obra', 'error');
     }
 }
 
@@ -144,10 +194,6 @@ async function deleteObra(id) {
             console.error('Error:', error);
         }
     }
-}
-
-function editObra(id) {
-    alert('Funcionalidad de edición disponible próximamente');
 }
 
 document.addEventListener('DOMContentLoaded', loadObras);

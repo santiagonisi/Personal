@@ -34,13 +34,15 @@
     </div>
   </a>
 
-  <a href="/" class="card-link">
+  {% if current_user.is_authenticated and current_user.es_admin() %}
+  <a href="/admin/usuarios" class="card-link">
     <div class="card">
       <div class="icon">⚙️</div>
-      <h2>Funciones</h2>
-      <p>Roles y permisos</p>
+      <h2>Administración</h2>
+      <p>Gestión de usuarios</p>
     </div>
   </a>
+  {% endif %}
 </section>
 
 <!-- Acciones Rápidas Centradas -->
