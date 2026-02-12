@@ -2,7 +2,16 @@ from flask import Blueprint, render_template, request, jsonify, redirect, url_fo
 from flask_login import login_required, current_user
 from models import Personal, Obra, Asignacion, Presentismo, IngresoEgreso
 from app import db
+from functools import wraps
 
+def admin_required(f):
+    """Decorador para requerir rol de admin"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or not current_user.es_admin():
+            return jsonify({'error': 'Acceso denegado. Se requieren permisos de administrador.'}), 403
+        return f(*args, **kwargs)
+    return decorated_function
 
 main_bp = Blueprint('main', __name__)
 
@@ -60,6 +69,7 @@ def get_personal():
         return jsonify({'error': f'Error al obtener personal: {str(e)}'}), 500
 
 @personal_bp.route('', methods=['POST'])
+@admin_required
 def crear_personal():
     try:
         data = request.json
@@ -97,6 +107,7 @@ def get_personal_id(id):
     return jsonify(personal.to_dict())
 
 @personal_bp.route('/<int:id>', methods=['PUT'])
+@admin_required
 def actualizar_personal(id):
     personal = Personal.query.get(id)
     if not personal:
@@ -107,12 +118,20 @@ def actualizar_personal(id):
     personal.apellido = data.get('apellido', personal.apellido)
     personal.email = data.get('email', personal.email)
     personal.telefono = data.get('telefono', personal.telefono)
+    personal.dni = data.get('dni', personal.dni)
+    personal.fecha_nacimiento = data.get('fecha_nacimiento', personal.fecha_nacimiento)
+    personal.domicilio = data.get('domicilio', personal.domicilio)
+    personal.ciudad = data.get('ciudad', personal.ciudad)
+    personal.provincia = data.get('provincia', personal.provincia)
+    personal.codigo_postal = data.get('codigo_postal', personal.codigo_postal)
+    personal.fecha_ingreso = data.get('fecha_ingreso', personal.fecha_ingreso)
     personal.estado = data.get('estado', personal.estado)
     
     db.session.commit()
     return jsonify({'mensaje': 'Actualizado'})
 
 @personal_bp.route('/<int:id>', methods=['DELETE'])
+@admin_required
 def eliminar_personal(id):
     personal = Personal.query.get(id)
     if not personal:
@@ -131,6 +150,7 @@ def get_obras():
     return jsonify([o.to_dict() for o in obras])
 
 @obras_bp.route('', methods=['POST'])
+@admin_required
 def crear_obra():
     data = request.json
     nueva = Obra(
@@ -153,6 +173,7 @@ def get_obra_id(id):
     return jsonify(obra.to_dict())
 
 @obras_bp.route('/<int:id>', methods=['PUT'])
+@admin_required
 def actualizar_obra(id):
     obra = Obra.query.get(id)
     if not obra:
@@ -162,12 +183,16 @@ def actualizar_obra(id):
     obra.nombre = data.get('nombre', obra.nombre)
     obra.descripcion = data.get('descripcion', obra.descripcion)
     obra.ubicacion = data.get('ubicacion', obra.ubicacion)
+    obra.responsable = data.get('responsable', obra.responsable)
+    obra.fecha_inicio = data.get('fecha_inicio', obra.fecha_inicio)
+    obra.fecha_fin_estimada = data.get('fecha_fin_estimada', obra.fecha_fin_estimada)
     obra.estado = data.get('estado', obra.estado)
     
     db.session.commit()
     return jsonify({'mensaje': 'Actualizado'})
 
 @obras_bp.route('/<int:id>', methods=['DELETE'])
+@admin_required
 def eliminar_obra(id):
     obra = Obra.query.get(id)
     if not obra:
@@ -186,6 +211,7 @@ def get_asignaciones():
     return jsonify([a.to_dict() for a in asignaciones])
 
 @asignaciones_bp.route('', methods=['POST'])
+@admin_required
 def crear_asignacion():
     data = request.json
     nueva = Asignacion(
@@ -199,21 +225,34 @@ def crear_asignacion():
     db.session.commit()
     return jsonify({'id': nueva.id, 'mensaje': 'Asignación creada'}), 201
 
+@asignaciones_bp.route('/<int:id>', methods=['GET'])
+def get_asignacion_id(id):
+    asignacion = Asignacion.query.get(id)
+    if not asignacion:
+        return jsonify({'error': 'No encontrado'}), 404
+    return jsonify(asignacion.to_dict())
+
 @asignaciones_bp.route('/<int:id>', methods=['PUT'])
+@admin_required
 def actualizar_asignacion(id):
     asignacion = Asignacion.query.get(id)
     if not asignacion:
         return jsonify({'error': 'No encontrado'}), 404
     
     data = request.json
+    asignacion.personal_id = data.get('personal_id', asignacion.personal_id)
+    asignacion.obra_id = data.get('obra_id', asignacion.obra_id)
     asignacion.puesto = data.get('puesto', asignacion.puesto)
     asignacion.salario_diario = data.get('salario_diario', asignacion.salario_diario)
+    asignacion.fecha_asignacion = data.get('fecha_asignacion', asignacion.fecha_asignacion)
+    asignacion.fecha_fin = data.get('fecha_fin', asignacion.fecha_fin)
     asignacion.estado = data.get('estado', asignacion.estado)
     
     db.session.commit()
     return jsonify({'mensaje': 'Actualizado'})
 
 @asignaciones_bp.route('/<int:id>', methods=['DELETE'])
+@admin_required
 def eliminar_asignacion(id):
     asignacion = Asignacion.query.get(id)
     if not asignacion:
