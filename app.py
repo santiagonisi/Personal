@@ -31,14 +31,12 @@ def create_app():
         def load_user(user_id):
             return Usuario.query.get(int(user_id))
     
-    from routes import main_bp, personal_bp, obras_bp, asignaciones_bp, presentismo_bp, ingresos_egresos_bp, auth_bp, admin_bp
+    from routes import main_bp, personal_bp, obras_bp, asignaciones_bp, auth_bp, admin_bp
     
     app.register_blueprint(main_bp)
     app.register_blueprint(personal_bp)
     app.register_blueprint(obras_bp)
     app.register_blueprint(asignaciones_bp)
-    app.register_blueprint(presentismo_bp)
-    app.register_blueprint(ingresos_egresos_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
     

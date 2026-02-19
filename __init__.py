@@ -19,13 +19,13 @@ def create_app():
     with app.app_context():
         db.create_all()
     
-    from routes import main_bp, personal_bp, obras_bp, asignaciones_bp, presentismo_bp, ingresos_egresos_bp
+    from routes import main_bp, personal_bp, obras_bp, asignaciones_bp, auth_bp, admin_bp
     
     app.register_blueprint(main_bp)
     app.register_blueprint(personal_bp)
     app.register_blueprint(obras_bp)
     app.register_blueprint(asignaciones_bp)
-    app.register_blueprint(presentismo_bp)
-    app.register_blueprint(ingresos_egresos_bp)
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(admin_bp)
     
     return app

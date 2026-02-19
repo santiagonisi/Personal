@@ -34,7 +34,7 @@
                 </tr>
             </thead>
             <tbody id="parte-diario-table">
-                <tr><td colspan="9" style="text-align: center;">Seleccione obra y fecha para cargar el parte diario</td></tr>
+                <tr><td colspan="9" style="text-align: center;">Seleccione una obra para cargar el parte diario</td></tr>
             </tbody>
         </table>
     </div>
@@ -117,8 +117,6 @@ function crearFilaObrero(item, obraId, fecha) {
     return tr;
 }
 
-let fechaParteActual = null;
-
 async function cargarParteDiario() {
     const obraId = document.getElementById('obra_id').value;
 
@@ -131,7 +129,6 @@ async function cargarParteDiario() {
         const data = await apiCall(`/api/parte-diario?obra_id=${obraId}`);
         const table = document.getElementById('parte-diario-table');
         const resumen = document.getElementById('resumen');
-        fechaParteActual = data.fecha;
 
         table.innerHTML = '';
 

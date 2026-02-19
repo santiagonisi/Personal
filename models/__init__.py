@@ -59,6 +59,7 @@ class Obra(db.Model):
             'fecha_inicio': self.fecha_inicio,
             'fecha_fin_estimada': self.fecha_fin_estimada,
             'estado': self.estado,
+            'frente': self.responsable,
             'responsable': self.responsable
         }
 
@@ -72,7 +73,6 @@ class Asignacion(db.Model):
     fecha_asignacion = db.Column(db.String(10), nullable=False)
     fecha_fin = db.Column(db.String(10))
     puesto = db.Column(db.String(100))
-    salario_diario = db.Column(db.Float)
     estado = db.Column(db.String(20), default='activa')
     fecha_creacion = db.Column(db.DateTime, default=datetime.now)
     
@@ -90,7 +90,6 @@ class Asignacion(db.Model):
             'fecha_asignacion': self.fecha_asignacion,
             'fecha_fin': self.fecha_fin,
             'puesto': self.puesto,
-            'salario_diario': self.salario_diario,
             'estado': self.estado
         }
 

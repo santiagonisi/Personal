@@ -117,16 +117,6 @@ def obras_page():
 def asignaciones_page():
     return render_template('asignaciones.html')
 
-@main_bp.route('/presentismo')
-@login_required
-def presentismo_page():
-    return redirect(url_for('main.parte_diario_page'))
-
-@main_bp.route('/ingresos-egresos')
-@login_required
-def ingresos_egresos_page():
-    return redirect(url_for('main.parte_diario_page'))
-
 @main_bp.route('/parte-diario')
 @login_required
 def parte_diario_page():
@@ -246,7 +236,7 @@ def crear_obra():
         ubicacion=data.get('ubicacion'),
         fecha_inicio=data.get('fecha_inicio'),
         fecha_fin_estimada=data.get('fecha_fin_estimada'),
-        responsable=data.get('responsable')
+        responsable=data.get('frente', data.get('responsable'))
     )
     db.session.add(nueva)
     db.session.commit()
@@ -271,7 +261,7 @@ def actualizar_obra(id):
     obra.nombre = data.get('nombre', obra.nombre)
     obra.descripcion = data.get('descripcion', obra.descripcion)
     obra.ubicacion = data.get('ubicacion', obra.ubicacion)
-    obra.responsable = data.get('responsable', obra.responsable)
+    obra.responsable = data.get('frente', data.get('responsable', obra.responsable))
     obra.fecha_inicio = data.get('fecha_inicio', obra.fecha_inicio)
     obra.fecha_fin_estimada = data.get('fecha_fin_estimada', obra.fecha_fin_estimada)
     obra.estado = data.get('estado', obra.estado)
@@ -307,8 +297,7 @@ def crear_asignacion():
         personal_id=data['personal_id'],
         obra_id=data['obra_id'],
         fecha_asignacion=data['fecha_asignacion'],
-        puesto=data.get('puesto'),
-        salario_diario=data.get('salario_diario')
+        puesto=data.get('puesto')
     )
     db.session.add(nueva)
     db.session.commit()
@@ -333,7 +322,6 @@ def actualizar_asignacion(id):
     asignacion.personal_id = data.get('personal_id', asignacion.personal_id)
     asignacion.obra_id = data.get('obra_id', asignacion.obra_id)
     asignacion.puesto = data.get('puesto', asignacion.puesto)
-    asignacion.salario_diario = data.get('salario_diario', asignacion.salario_diario)
     asignacion.fecha_asignacion = data.get('fecha_asignacion', asignacion.fecha_asignacion)
     asignacion.fecha_fin = data.get('fecha_fin', asignacion.fecha_fin)
     asignacion.estado = data.get('estado', asignacion.estado)
@@ -349,205 +337,6 @@ def eliminar_asignacion(id):
         return jsonify({'error': 'No encontrado'}), 404
     
     db.session.delete(asignacion)
-    db.session.commit()
-    return jsonify({'mensaje': 'Eliminado'})
-
-
-presentismo_bp = Blueprint('presentismo', __name__, url_prefix='/api/presentismo')
-
-@presentismo_bp.route('', methods=['GET'])
-@obra_or_admin_required
-def get_presentismo():
-    obra_id = request.args.get('obra_id')
-    fecha_inicio = request.args.get('fecha_inicio')
-    fecha_fin = request.args.get('fecha_fin')
-    
-    query = Presentismo.query
-    if obra_id:
-        query = query.filter_by(obra_id=obra_id)
-    if fecha_inicio and fecha_fin:
-        query = query.filter(Presentismo.fecha.between(fecha_inicio, fecha_fin))
-    
-    presentismo = query.all()
-    return jsonify([p.to_dict() for p in presentismo])
-
-@presentismo_bp.route('', methods=['POST'])
-@obra_or_admin_required
-def crear_presentismo():
-    data = request.json
-    personal_id = data.get('personal_id')
-    obra_id = data.get('obra_id')
-    fecha = data.get('fecha')
-    tipo = data.get('tipo')
-
-    if not personal_id or not obra_id or not fecha or not tipo:
-        return jsonify({'error': 'personal_id, obra_id, fecha y tipo son requeridos'}), 400
-
-    if not obtener_asignacion_activa(personal_id, obra_id, fecha):
-        return jsonify({'error': 'El obrero no tiene asignación activa en esa obra y fecha'}), 400
-
-    existente = Presentismo.query.filter_by(
-        personal_id=personal_id,
-        obra_id=obra_id,
-        fecha=fecha
-    ).first()
-
-    if existente:
-        existente.tipo = tipo
-        existente.descripcion = data.get('descripcion')
-        existente.notas = data.get('notas')
-        mensaje = 'Presentismo actualizado'
-        presentismo_id = existente.id
-    else:
-        nuevo = Presentismo(
-            personal_id=personal_id,
-            obra_id=obra_id,
-            fecha=fecha,
-            tipo=tipo,
-            descripcion=data.get('descripcion'),
-            notas=data.get('notas')
-        )
-        db.session.add(nuevo)
-        mensaje = 'Presentismo registrado'
-
-    db.session.commit()
-    if existente:
-        return jsonify({'id': presentismo_id, 'mensaje': mensaje}), 200
-    return jsonify({'id': nuevo.id, 'mensaje': mensaje}), 201
-
-@presentismo_bp.route('/<int:id>', methods=['GET'])
-@obra_or_admin_required
-def get_presentismo_id(id):
-    presentismo = Presentismo.query.get(id)
-    if not presentismo:
-        return jsonify({'error': 'No encontrado'}), 404
-    return jsonify(presentismo.to_dict())
-
-@presentismo_bp.route('/<int:id>', methods=['PUT'])
-@obra_or_admin_required
-def actualizar_presentismo(id):
-    presentismo = Presentismo.query.get(id)
-    if not presentismo:
-        return jsonify({'error': 'No encontrado'}), 404
-    
-    data = request.json
-    presentismo.tipo = data.get('tipo', presentismo.tipo)
-    presentismo.descripcion = data.get('descripcion', presentismo.descripcion)
-    presentismo.notas = data.get('notas', presentismo.notas)
-    
-    db.session.commit()
-    return jsonify({'mensaje': 'Actualizado'})
-
-@presentismo_bp.route('/<int:id>', methods=['DELETE'])
-@admin_required
-def eliminar_presentismo(id):
-    presentismo = Presentismo.query.get(id)
-    if not presentismo:
-        return jsonify({'error': 'No encontrado'}), 404
-    
-    db.session.delete(presentismo)
-    db.session.commit()
-    return jsonify({'mensaje': 'Eliminado'})
-
-
-ingresos_egresos_bp = Blueprint('ingresos_egresos', __name__, url_prefix='/api/ingresos-egresos')
-
-@ingresos_egresos_bp.route('', methods=['GET'])
-@obra_or_admin_required
-def get_ingresos_egresos():
-    obra_id = request.args.get('obra_id')
-    fecha_inicio = request.args.get('fecha_inicio')
-    fecha_fin = request.args.get('fecha_fin')
-    
-    query = IngresoEgreso.query
-    if obra_id:
-        query = query.filter_by(obra_id=obra_id)
-    if fecha_inicio and fecha_fin:
-        query = query.filter(IngresoEgreso.fecha.between(fecha_inicio, fecha_fin))
-    
-    registros = query.all()
-    return jsonify([r.to_dict() for r in registros])
-
-@ingresos_egresos_bp.route('', methods=['POST'])
-@obra_or_admin_required
-def crear_ingreso_egreso():
-    data = request.json
-    personal_id = data.get('personal_id')
-    obra_id = data.get('obra_id')
-    fecha = data.get('fecha')
-
-    if not personal_id or not obra_id or not fecha:
-        return jsonify({'error': 'personal_id, obra_id y fecha son requeridos'}), 400
-
-    if not obtener_asignacion_activa(personal_id, obra_id, fecha):
-        return jsonify({'error': 'El obrero no tiene asignación activa en esa obra y fecha'}), 400
-
-    horas_trabajadas = calcular_horas_trabajadas(data.get('hora_ingreso'), data.get('hora_egreso'))
-    existente = IngresoEgreso.query.filter_by(
-        personal_id=personal_id,
-        obra_id=obra_id,
-        fecha=fecha
-    ).first()
-
-    if existente:
-        existente.hora_ingreso = data.get('hora_ingreso')
-        existente.hora_egreso = data.get('hora_egreso')
-        existente.horas_trabajadas = horas_trabajadas
-        existente.notas = data.get('notas')
-        mensaje = 'Registro actualizado'
-        registro_id = existente.id
-    else:
-        nuevo = IngresoEgreso(
-            personal_id=personal_id,
-            obra_id=obra_id,
-            fecha=fecha,
-            hora_ingreso=data.get('hora_ingreso'),
-            hora_egreso=data.get('hora_egreso'),
-            horas_trabajadas=horas_trabajadas,
-            notas=data.get('notas')
-        )
-        db.session.add(nuevo)
-        mensaje = 'Registro creado'
-
-    db.session.commit()
-    if existente:
-        return jsonify({'id': registro_id, 'mensaje': mensaje}), 200
-    return jsonify({'id': nuevo.id, 'mensaje': mensaje}), 201
-
-@ingresos_egresos_bp.route('/<int:id>', methods=['GET'])
-@obra_or_admin_required
-def get_ingreso_egreso_id(id):
-    registro = IngresoEgreso.query.get(id)
-    if not registro:
-        return jsonify({'error': 'No encontrado'}), 404
-    return jsonify(registro.to_dict())
-
-@ingresos_egresos_bp.route('/<int:id>', methods=['PUT'])
-@obra_or_admin_required
-def actualizar_ingreso_egreso(id):
-    registro = IngresoEgreso.query.get(id)
-    if not registro:
-        return jsonify({'error': 'No encontrado'}), 404
-    
-    data = request.json
-    hora_ingreso = data.get('hora_ingreso', registro.hora_ingreso)
-    hora_egreso = data.get('hora_egreso', registro.hora_egreso)
-    registro.hora_ingreso = hora_ingreso
-    registro.hora_egreso = hora_egreso
-    registro.horas_trabajadas = calcular_horas_trabajadas(hora_ingreso, hora_egreso)
-    registro.notas = data.get('notas', registro.notas)
-    
-    db.session.commit()
-    return jsonify({'mensaje': 'Actualizado'})
-
-@ingresos_egresos_bp.route('/<int:id>', methods=['DELETE'])
-@admin_required
-def eliminar_ingreso_egreso(id):
-    registro = IngresoEgreso.query.get(id)
-    if not registro:
-        return jsonify({'error': 'No encontrado'}), 404
-    
-    db.session.delete(registro)
     db.session.commit()
     return jsonify({'mensaje': 'Eliminado'})
 
