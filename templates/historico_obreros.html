@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}Archivo Histórico de Obreros{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-title">📚 Archivo Histórico de Obreros</div>
+
+    <div style="margin-bottom: 20px;">
+        <input type="text" id="filtro-obrero" placeholder="Buscar por nombre o DNI" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Obrero</th>
+                    <th>DNI</th>
+                    <th>Obras</th>
+                    <th>Horas Totales</th>
+                    <th>Días Trabajados</th>
+                    <th>Presente</th>
+                    <th>No Presente</th>
+                    <th>Justificados</th>
+                    <th>Sin Justificar</th>
+                    <th>Detalle</th>
+                </tr>
+            </thead>
+            <tbody id="historico-table">
+                <tr><td colspan="10" style="text-align: center;">Cargando histórico...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="justificaciones-modal" class="modal">
+    <div class="modal-content" style="max-width: 900px;">
+        <div class="modal-header">
+            <h3 id="justificaciones-title">Justificaciones</h3>
+            <button class="modal-close" onclick="closeJustificacionesModal()">×</button>
+        </div>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Obra</th>
+                        <th>Tipo</th>
+                        <th>Detalle</th>
+                    </tr>
+                </thead>
+                <tbody id="justificaciones-table"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+let historicoData = [];
+
+function formatObras(obras) {
+    if (!obras || obras.length === 0) return '-';
+    return obras.map(o => `${o.obra_nombre}`).join(', ');
+}
+
+function renderHistoricoRows(data) {
+    const table = document.getElementById('historico-table');
+    table.innerHTML = '';
+
+    if (!data || data.length === 0) {
+        table.innerHTML = '<tr><td colspan="10" style="text-align: center;">No hay datos históricos para mostrar</td></tr>';
+        return;
+    }
+
+    data.forEach(item => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${item.apellido}, ${item.nombre}</td>
+            <td>${item.dni || '-'}</td>
+            <td>${formatObras(item.obras)}</td>
+            <td>${item.total_horas || 0} hs</td>
+            <td>${item.dias_trabajados || 0}</td>
+            <td>${item.presentes || 0}</td>
+            <td>${item.no_presentes || 0}</td>
+            <td>${item.no_presentes_justificados || 0}</td>
+            <td>${item.no_presentes_sin_justificar || 0}</td>
+            <td>
+                <button class="btn btn-small btn-edit" onclick="openJustificacionesModal(${item.personal_id})">Ver</button>
+            </td>
+        `;
+        table.appendChild(row);
+    });
+}
+
+async function loadHistorico() {
+    try {
+        historicoData = await apiCall('/api/historico-obreros');
+        renderHistoricoRows(historicoData);
+    } catch (error) {
+        console.error('Error cargando histórico:', error);
+        showNotification('Error al cargar histórico de obreros', 'error');
+    }
+}
+
+function openJustificacionesModal(personalId) {
+    const obrero = historicoData.find(x => x.personal_id === personalId);
+    if (!obrero) return;
+
+    document.getElementById('justificaciones-title').textContent = `Justificaciones - ${obrero.apellido}, ${obrero.nombre}`;
+    const table = document.getElementById('justificaciones-table');
+    table.innerHTML = '';
+
+    if (!obrero.justificaciones || obrero.justificaciones.length === 0) {
+        table.innerHTML = '<tr><td colspan="4" style="text-align: center;">Sin justificaciones registradas</td></tr>';
+    } else {
+        obrero.justificaciones.forEach(j => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${formatDate(j.fecha)}</td>
+                <td>${j.obra_nombre}</td>
+                <td>${j.tipo}</td>
+                <td>${j.detalle || '-'}</td>
+            `;
+            table.appendChild(row);
+        });
+    }
+
+    document.getElementById('justificaciones-modal').classList.add('active');
+}
+
+function closeJustificacionesModal() {
+    document.getElementById('justificaciones-modal').classList.remove('active');
+}
+
+function applyFilter() {
+    const text = document.getElementById('filtro-obrero').value.toLowerCase().trim();
+    if (!text) {
+        renderHistoricoRows(historicoData);
+        return;
+    }
+
+    const filtrado = historicoData.filter(item => {
+        const nombre = `${item.nombre} ${item.apellido}`.toLowerCase();
+        const dni = (item.dni || '').toLowerCase();
+        return nombre.includes(text) || dni.includes(text);
+    });
+
+    renderHistoricoRows(filtrado);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadHistorico();
+    document.getElementById('filtro-obrero').addEventListener('input', applyFilter);
+});
+</script>
+{% endblock %}

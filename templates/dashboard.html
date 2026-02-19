@@ -56,8 +56,10 @@
         <a href="/obras" class="btn btn-primary">+ Nueva Obra</a>
       {% endif %}
         <a href="/asignaciones" class="btn btn-primary">+ Nueva Asignación</a>
-        <a href="/presentismo" class="btn btn-secondary">Registrar Presentismo</a>
-        <a href="/ingresos-egresos" class="btn btn-secondary">Registrar Entrada/Salida</a>
+        <a href="/parte-diario" class="btn btn-secondary">Parte Diario por Obra</a>
+      {% if current_user.es_admin() %}
+      <a href="/historico-obreros" class="btn btn-secondary">Archivo Histórico</a>
+      {% endif %}
     </div>
 </div>
 

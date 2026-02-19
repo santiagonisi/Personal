@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}Parte Diario por Obra - Control de Nómina en Obra{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-title">
+        📝 Parte Diario por Obra
+    </div>
+
+    <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: end;">
+        <div style="min-width: 240px; flex: 1;">
+            <label>Obra *</label>
+            <select id="obra_id" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;"></select>
+        </div>
+        <button class="btn btn-edit" onclick="cargarParteDiario()">Cargar Parte</button>
+    </div>
+
+    <div id="resumen" style="margin-bottom: 15px; color: #666;"></div>
+
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Empleado</th>
+                    <th>DNI</th>
+                    <th>Puesto</th>
+                    <th>Presentismo</th>
+                    <th>Ingreso</th>
+                    <th>Salida</th>
+                    <th>Horas</th>
+                    <th>Observación</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody id="parte-diario-table">
+                <tr><td colspan="9" style="text-align: center;">Seleccione obra y fecha para cargar el parte diario</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+async function loadObrasParteDiario() {
+    try {
+        const obras = await apiCall('/api/obras');
+        const obraSelect = document.getElementById('obra_id');
+        obraSelect.innerHTML = '<option value="">-- Seleccione obra --</option>';
+
+        obras.forEach(o => {
+            const option = document.createElement('option');
+            option.value = o.id;
+            option.textContent = o.nombre;
+            obraSelect.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error cargando obras:', error);
+    }
+}
+
+function calcularHorasFila(fila) {
+    const horaIngreso = fila.querySelector('.hora-ingreso').value;
+    const horaEgreso = fila.querySelector('.hora-egreso').value;
+    const horasCell = fila.querySelector('.horas-calc');
+
+    if (!horaIngreso || !horaEgreso) {
+        horasCell.textContent = '-';
+        return null;
+    }
+
+    let inicio = new Date(`1970-01-01T${horaIngreso}:00`);
+    let fin = new Date(`1970-01-01T${horaEgreso}:00`);
+
+    if (fin < inicio) {
+        fin.setDate(fin.getDate() + 1);
+    }
+
+    const horas = Number(((fin - inicio) / (1000 * 60 * 60)).toFixed(2));
+    horasCell.textContent = `${horas} hs`;
+    return horas;
+}
+
+function crearFilaObrero(item, obraId, fecha) {
+    const tr = document.createElement('tr');
+    tr.dataset.personalId = item.personal_id;
+
+    const horasTexto = item.horas_trabajadas !== null && item.horas_trabajadas !== undefined
+        ? `${item.horas_trabajadas} hs`
+        : '-';
+
+    tr.innerHTML = `
+        <td>${item.nombre} ${item.apellido}</td>
+        <td>${item.dni || '-'}</td>
+        <td>${item.puesto || '-'}</td>
+        <td>
+            <select class="tipo" style="padding: 6px; border-radius: 4px; width: 170px;">
+                <option value="presente" ${item.tipo === 'presente' ? 'selected' : ''}>Presente</option>
+                <option value="ausente_justificado" ${item.tipo === 'ausente_justificado' ? 'selected' : ''}>Ausente Justificado</option>
+                <option value="ausente_sin_aviso" ${item.tipo === 'ausente_sin_aviso' ? 'selected' : ''}>Ausente Sin Aviso</option>
+                <option value="art" ${item.tipo === 'art' ? 'selected' : ''}>ART</option>
+                <option value="vacacion" ${item.tipo === 'vacacion' ? 'selected' : ''}>Vacación</option>
+                <option value="franco" ${item.tipo === 'franco' ? 'selected' : ''}>Franco</option>
+            </select>
+        </td>
+        <td><input type="time" class="hora-ingreso" value="${item.hora_ingreso || ''}" style="padding: 6px;"></td>
+        <td><input type="time" class="hora-egreso" value="${item.hora_egreso || ''}" style="padding: 6px;"></td>
+        <td class="horas-calc">${horasTexto}</td>
+        <td><input type="text" class="notas" value="${item.notas || ''}" placeholder="Observación" style="padding: 6px; width: 180px;"></td>
+        <td>
+            <button class="btn btn-success btn-small" onclick="guardarFila(this, ${obraId}, '${fecha}')">Guardar</button>
+        </td>
+    `;
+
+    tr.querySelector('.hora-ingreso').addEventListener('change', () => calcularHorasFila(tr));
+    tr.querySelector('.hora-egreso').addEventListener('change', () => calcularHorasFila(tr));
+
+    return tr;
+}
+
+let fechaParteActual = null;
+
+async function cargarParteDiario() {
+    const obraId = document.getElementById('obra_id').value;
+
+    if (!obraId) {
+        showNotification('Seleccione una obra', 'error');
+        return;
+    }
+
+    try {
+        const data = await apiCall(`/api/parte-diario?obra_id=${obraId}`);
+        const table = document.getElementById('parte-diario-table');
+        const resumen = document.getElementById('resumen');
+        fechaParteActual = data.fecha;
+
+        table.innerHTML = '';
+
+        if (!data.filas || data.filas.length === 0) {
+            table.innerHTML = '<tr><td colspan="9" style="text-align: center;">No hay obreros asignados para esta obra en la fecha seleccionada</td></tr>';
+            resumen.textContent = 'Sin datos para mostrar';
+            return;
+        }
+
+        data.filas.forEach(item => {
+            table.appendChild(crearFilaObrero(item, obraId, data.fecha));
+        });
+
+        resumen.textContent = `Obreros asignados: ${data.total_obreros} | Fecha del parte: ${formatDate(data.fecha)}`;
+    } catch (error) {
+        console.error('Error cargando parte diario:', error);
+        showNotification('Error al cargar parte diario', 'error');
+    }
+}
+
+async function guardarFila(button, obraId, fecha) {
+    const fila = button.closest('tr');
+    const personalId = parseInt(fila.dataset.personalId);
+    const tipo = fila.querySelector('.tipo').value;
+    const horaIngreso = fila.querySelector('.hora-ingreso').value;
+    const horaEgreso = fila.querySelector('.hora-egreso').value;
+    const notas = fila.querySelector('.notas').value;
+
+    calcularHorasFila(fila);
+
+    const payload = {
+        obra_id: obraId,
+        personal_id: personalId,
+        fecha,
+        tipo,
+        descripcion: '',
+        hora_ingreso: horaIngreso,
+        hora_egreso: horaEgreso,
+        notas
+    };
+
+    try {
+        await apiCall('/api/parte-diario', 'POST', payload);
+        showNotification('Dato guardado correctamente');
+    } catch (error) {
+        console.error('Error guardando fila:', error);
+        showNotification('No se pudo guardar el dato del obrero', 'error');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadObrasParteDiario();
+});
+</script>
+{% endblock %}

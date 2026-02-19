@@ -54,6 +54,31 @@ def calcular_horas_trabajadas(hora_ingreso, hora_egreso):
 
     return round((fin - inicio).total_seconds() / 3600, 2)
 
+def asignacion_activa_en_fecha(asignacion, fecha):
+    """Retorna True si la asignación está activa en la fecha indicada (YYYY-MM-DD)."""
+    if not asignacion or not fecha:
+        return False
+    if asignacion.estado != 'activa':
+        return False
+    if asignacion.fecha_asignacion and asignacion.fecha_asignacion > fecha:
+        return False
+    if asignacion.fecha_fin and asignacion.fecha_fin < fecha:
+        return False
+    return True
+
+def obtener_asignacion_activa(personal_id, obra_id, fecha):
+    """Obtiene una asignación activa de un obrero en una obra para una fecha."""
+    asignaciones = Asignacion.query.filter_by(
+        personal_id=personal_id,
+        obra_id=obra_id,
+        estado='activa'
+    ).all()
+
+    for asignacion in asignaciones:
+        if asignacion_activa_en_fecha(asignacion, fecha):
+            return asignacion
+    return None
+
 main_bp = Blueprint('main', __name__)
 
 @main_bp.route('/')
@@ -95,12 +120,26 @@ def asignaciones_page():
 @main_bp.route('/presentismo')
 @login_required
 def presentismo_page():
-    return render_template('presentismo.html')
+    return redirect(url_for('main.parte_diario_page'))
 
 @main_bp.route('/ingresos-egresos')
 @login_required
 def ingresos_egresos_page():
-    return render_template('ingresos_egresos.html')
+    return redirect(url_for('main.parte_diario_page'))
+
+@main_bp.route('/parte-diario')
+@login_required
+def parte_diario_page():
+    if not (current_user.es_admin() or current_user.es_en_obra()):
+        return redirect(url_for('main.dashboard'))
+    return render_template('parte_diario.html')
+
+@main_bp.route('/historico-obreros')
+@login_required
+def historico_obreros_page():
+    if not current_user.es_admin():
+        return redirect(url_for('main.dashboard'))
+    return render_template('historico_obreros.html')
 
 
 personal_bp = Blueprint('personal', __name__, url_prefix='/api/personal')
@@ -336,17 +375,45 @@ def get_presentismo():
 @obra_or_admin_required
 def crear_presentismo():
     data = request.json
-    nuevo = Presentismo(
-        personal_id=data['personal_id'],
-        obra_id=data['obra_id'],
-        fecha=data['fecha'],
-        tipo=data['tipo'],
-        descripcion=data.get('descripcion'),
-        notas=data.get('notas')
-    )
-    db.session.add(nuevo)
+    personal_id = data.get('personal_id')
+    obra_id = data.get('obra_id')
+    fecha = data.get('fecha')
+    tipo = data.get('tipo')
+
+    if not personal_id or not obra_id or not fecha or not tipo:
+        return jsonify({'error': 'personal_id, obra_id, fecha y tipo son requeridos'}), 400
+
+    if not obtener_asignacion_activa(personal_id, obra_id, fecha):
+        return jsonify({'error': 'El obrero no tiene asignación activa en esa obra y fecha'}), 400
+
+    existente = Presentismo.query.filter_by(
+        personal_id=personal_id,
+        obra_id=obra_id,
+        fecha=fecha
+    ).first()
+
+    if existente:
+        existente.tipo = tipo
+        existente.descripcion = data.get('descripcion')
+        existente.notas = data.get('notas')
+        mensaje = 'Presentismo actualizado'
+        presentismo_id = existente.id
+    else:
+        nuevo = Presentismo(
+            personal_id=personal_id,
+            obra_id=obra_id,
+            fecha=fecha,
+            tipo=tipo,
+            descripcion=data.get('descripcion'),
+            notas=data.get('notas')
+        )
+        db.session.add(nuevo)
+        mensaje = 'Presentismo registrado'
+
     db.session.commit()
-    return jsonify({'id': nuevo.id, 'mensaje': 'Presentismo registrado'}), 201
+    if existente:
+        return jsonify({'id': presentismo_id, 'mensaje': mensaje}), 200
+    return jsonify({'id': nuevo.id, 'mensaje': mensaje}), 201
 
 @presentismo_bp.route('/<int:id>', methods=['GET'])
 @obra_or_admin_required
@@ -405,19 +472,47 @@ def get_ingresos_egresos():
 @obra_or_admin_required
 def crear_ingreso_egreso():
     data = request.json
+    personal_id = data.get('personal_id')
+    obra_id = data.get('obra_id')
+    fecha = data.get('fecha')
+
+    if not personal_id or not obra_id or not fecha:
+        return jsonify({'error': 'personal_id, obra_id y fecha son requeridos'}), 400
+
+    if not obtener_asignacion_activa(personal_id, obra_id, fecha):
+        return jsonify({'error': 'El obrero no tiene asignación activa en esa obra y fecha'}), 400
+
     horas_trabajadas = calcular_horas_trabajadas(data.get('hora_ingreso'), data.get('hora_egreso'))
-    nuevo = IngresoEgreso(
-        personal_id=data['personal_id'],
-        obra_id=data['obra_id'],
-        fecha=data['fecha'],
-        hora_ingreso=data.get('hora_ingreso'),
-        hora_egreso=data.get('hora_egreso'),
-        horas_trabajadas=horas_trabajadas,
-        notas=data.get('notas')
-    )
-    db.session.add(nuevo)
+    existente = IngresoEgreso.query.filter_by(
+        personal_id=personal_id,
+        obra_id=obra_id,
+        fecha=fecha
+    ).first()
+
+    if existente:
+        existente.hora_ingreso = data.get('hora_ingreso')
+        existente.hora_egreso = data.get('hora_egreso')
+        existente.horas_trabajadas = horas_trabajadas
+        existente.notas = data.get('notas')
+        mensaje = 'Registro actualizado'
+        registro_id = existente.id
+    else:
+        nuevo = IngresoEgreso(
+            personal_id=personal_id,
+            obra_id=obra_id,
+            fecha=fecha,
+            hora_ingreso=data.get('hora_ingreso'),
+            hora_egreso=data.get('hora_egreso'),
+            horas_trabajadas=horas_trabajadas,
+            notas=data.get('notas')
+        )
+        db.session.add(nuevo)
+        mensaje = 'Registro creado'
+
     db.session.commit()
-    return jsonify({'id': nuevo.id, 'mensaje': 'Registro creado'}), 201
+    if existente:
+        return jsonify({'id': registro_id, 'mensaje': mensaje}), 200
+    return jsonify({'id': nuevo.id, 'mensaje': mensaje}), 201
 
 @ingresos_egresos_bp.route('/<int:id>', methods=['GET'])
 @obra_or_admin_required
@@ -455,6 +550,185 @@ def eliminar_ingreso_egreso(id):
     db.session.delete(registro)
     db.session.commit()
     return jsonify({'mensaje': 'Eliminado'})
+
+
+@main_bp.route('/api/parte-diario', methods=['GET'])
+@obra_or_admin_required
+def get_parte_diario():
+    obra_id = request.args.get('obra_id', type=int)
+    fecha = request.args.get('fecha') or datetime.now().strftime('%Y-%m-%d')
+
+    if not obra_id:
+        return jsonify({'error': 'obra_id es requerido'}), 400
+
+    asignaciones = Asignacion.query.filter_by(obra_id=obra_id, estado='activa').all()
+    presentismos = Presentismo.query.filter_by(obra_id=obra_id, fecha=fecha).all()
+    ingresos_egresos = IngresoEgreso.query.filter_by(obra_id=obra_id, fecha=fecha).all()
+
+    presentismo_por_personal = {p.personal_id: p for p in presentismos}
+    ingreso_por_personal = {i.personal_id: i for i in ingresos_egresos}
+
+    filas = []
+    for asignacion in asignaciones:
+        if not asignacion_activa_en_fecha(asignacion, fecha):
+            continue
+
+        presentismo = presentismo_por_personal.get(asignacion.personal_id)
+        ingreso = ingreso_por_personal.get(asignacion.personal_id)
+
+        filas.append({
+            'personal_id': asignacion.personal_id,
+            'nombre': asignacion.personal.nombre,
+            'apellido': asignacion.personal.apellido,
+            'dni': asignacion.personal.dni,
+            'puesto': asignacion.puesto,
+            'presentismo_id': presentismo.id if presentismo else None,
+            'tipo': presentismo.tipo if presentismo else 'presente',
+            'descripcion': presentismo.descripcion if presentismo else '',
+            'ingreso_egreso_id': ingreso.id if ingreso else None,
+            'hora_ingreso': ingreso.hora_ingreso if ingreso else '',
+            'hora_egreso': ingreso.hora_egreso if ingreso else '',
+            'horas_trabajadas': ingreso.horas_trabajadas if ingreso else None,
+            'notas': ingreso.notas if ingreso else ''
+        })
+
+    return jsonify({
+        'obra_id': obra_id,
+        'fecha': fecha,
+        'total_obreros': len(filas),
+        'filas': filas
+    })
+
+
+@main_bp.route('/api/parte-diario', methods=['POST'])
+@obra_or_admin_required
+def guardar_parte_diario():
+    data = request.json or {}
+
+    obra_id = data.get('obra_id')
+    personal_id = data.get('personal_id')
+    fecha = data.get('fecha') or datetime.now().strftime('%Y-%m-%d')
+    tipo = data.get('tipo')
+    descripcion = data.get('descripcion')
+    hora_ingreso = data.get('hora_ingreso')
+    hora_egreso = data.get('hora_egreso')
+    notas = data.get('notas')
+
+    if not obra_id or not personal_id or not tipo:
+        return jsonify({'error': 'obra_id, personal_id y tipo son requeridos'}), 400
+
+    if not obtener_asignacion_activa(personal_id, obra_id, fecha):
+        return jsonify({'error': 'El obrero no tiene asignación activa en esa obra y fecha'}), 400
+
+    presentismo = Presentismo.query.filter_by(
+        obra_id=obra_id,
+        personal_id=personal_id,
+        fecha=fecha
+    ).first()
+
+    if presentismo:
+        presentismo.tipo = tipo
+        presentismo.descripcion = descripcion
+    else:
+        presentismo = Presentismo(
+            personal_id=personal_id,
+            obra_id=obra_id,
+            fecha=fecha,
+            tipo=tipo,
+            descripcion=descripcion,
+            notas=''
+        )
+        db.session.add(presentismo)
+
+    ingreso_egreso = IngresoEgreso.query.filter_by(
+        obra_id=obra_id,
+        personal_id=personal_id,
+        fecha=fecha
+    ).first()
+
+    horas_trabajadas = calcular_horas_trabajadas(hora_ingreso, hora_egreso)
+
+    if ingreso_egreso:
+        ingreso_egreso.hora_ingreso = hora_ingreso
+        ingreso_egreso.hora_egreso = hora_egreso
+        ingreso_egreso.horas_trabajadas = horas_trabajadas
+        ingreso_egreso.notas = notas
+    else:
+        ingreso_egreso = IngresoEgreso(
+            personal_id=personal_id,
+            obra_id=obra_id,
+            fecha=fecha,
+            hora_ingreso=hora_ingreso,
+            hora_egreso=hora_egreso,
+            horas_trabajadas=horas_trabajadas,
+            notas=notas
+        )
+        db.session.add(ingreso_egreso)
+
+    db.session.commit()
+    return jsonify({'mensaje': 'Parte diario guardado correctamente'})
+
+
+@main_bp.route('/api/historico-obreros', methods=['GET'])
+@admin_required
+def get_historico_obreros():
+    personal_list = Personal.query.order_by(Personal.apellido.asc(), Personal.nombre.asc()).all()
+    historico = []
+
+    for obrero in personal_list:
+        asignaciones = Asignacion.query.filter_by(personal_id=obrero.id).all()
+        presentismos = Presentismo.query.filter_by(personal_id=obrero.id).all()
+        ingresos = IngresoEgreso.query.filter_by(personal_id=obrero.id).all()
+
+        obras = []
+        obras_set = set()
+        for asignacion in asignaciones:
+            if asignacion.obra_id in obras_set:
+                continue
+            obras_set.add(asignacion.obra_id)
+            obras.append({
+                'obra_id': asignacion.obra_id,
+                'obra_nombre': asignacion.obra.nombre if asignacion.obra else 'Sin obra',
+                'fecha_asignacion': asignacion.fecha_asignacion,
+                'fecha_fin': asignacion.fecha_fin,
+                'puesto': asignacion.puesto
+            })
+
+        total_horas = round(sum((ing.horas_trabajadas or 0) for ing in ingresos), 2)
+        dias_trabajados = len({ing.fecha for ing in ingresos if ing.fecha})
+
+        presentes = sum(1 for p in presentismos if p.tipo == 'presente')
+        no_presentes = sum(1 for p in presentismos if p.tipo != 'presente')
+        no_presentes_justificados = sum(1 for p in presentismos if p.tipo in ['ausente_justificado', 'art', 'vacacion', 'franco'])
+        no_presentes_sin_justificar = sum(1 for p in presentismos if p.tipo == 'ausente_sin_aviso')
+
+        justificaciones = []
+        for p in presentismos:
+            if p.tipo == 'presente':
+                continue
+            justificaciones.append({
+                'fecha': p.fecha,
+                'obra_nombre': p.obra.nombre if p.obra else 'Sin obra',
+                'tipo': p.tipo,
+                'detalle': p.descripcion or p.notas or '-'
+            })
+
+        historico.append({
+            'personal_id': obrero.id,
+            'nombre': obrero.nombre,
+            'apellido': obrero.apellido,
+            'dni': obrero.dni,
+            'obras': obras,
+            'total_horas': total_horas,
+            'dias_trabajados': dias_trabajados,
+            'presentes': presentes,
+            'no_presentes': no_presentes,
+            'no_presentes_justificados': no_presentes_justificados,
+            'no_presentes_sin_justificar': no_presentes_sin_justificar,
+            'justificaciones': justificaciones
+        })
+
+    return jsonify(historico)
 
 from routes.auth import auth_bp
 from routes.admin import admin_bp
