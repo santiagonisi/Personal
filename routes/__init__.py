@@ -13,6 +13,15 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def obra_or_admin_required(f):
+    """Decorador para requerir rol admin o en_obra"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or not (current_user.es_admin() or current_user.es_en_obra()):
+            return jsonify({'error': 'Acceso denegado. Se requieren permisos de administrador o en_obra.'}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
 main_bp = Blueprint('main', __name__)
 
 @main_bp.route('/')
@@ -35,11 +44,15 @@ def dashboard():
 @main_bp.route('/personal')
 @login_required
 def personal_page():
+    if not current_user.es_admin():
+        return redirect(url_for('main.dashboard'))
     return render_template('personal.html')
 
 @main_bp.route('/obras')
 @login_required
 def obras_page():
+    if not current_user.es_admin():
+        return redirect(url_for('main.dashboard'))
     return render_template('obras.html')
 
 @main_bp.route('/asignaciones')
@@ -61,6 +74,7 @@ def ingresos_egresos_page():
 personal_bp = Blueprint('personal', __name__, url_prefix='/api/personal')
 
 @personal_bp.route('', methods=['GET'])
+@obra_or_admin_required
 def get_personal():
     try:
         personal = Personal.query.all()
@@ -100,6 +114,7 @@ def crear_personal():
         return jsonify({'error': str(e)}), 500
 
 @personal_bp.route('/<int:id>', methods=['GET'])
+@obra_or_admin_required
 def get_personal_id(id):
     personal = Personal.query.get(id)
     if not personal:
@@ -145,6 +160,7 @@ def eliminar_personal(id):
 obras_bp = Blueprint('obras', __name__, url_prefix='/api/obras')
 
 @obras_bp.route('', methods=['GET'])
+@obra_or_admin_required
 def get_obras():
     obras = Obra.query.all()
     return jsonify([o.to_dict() for o in obras])
@@ -166,6 +182,7 @@ def crear_obra():
     return jsonify({'id': nueva.id, 'mensaje': 'Obra creada'}), 201
 
 @obras_bp.route('/<int:id>', methods=['GET'])
+@obra_or_admin_required
 def get_obra_id(id):
     obra = Obra.query.get(id)
     if not obra:
@@ -206,12 +223,13 @@ def eliminar_obra(id):
 asignaciones_bp = Blueprint('asignaciones', __name__, url_prefix='/api/asignaciones')
 
 @asignaciones_bp.route('', methods=['GET'])
+@obra_or_admin_required
 def get_asignaciones():
     asignaciones = Asignacion.query.all()
     return jsonify([a.to_dict() for a in asignaciones])
 
 @asignaciones_bp.route('', methods=['POST'])
-@admin_required
+@obra_or_admin_required
 def crear_asignacion():
     data = request.json
     nueva = Asignacion(
@@ -226,6 +244,7 @@ def crear_asignacion():
     return jsonify({'id': nueva.id, 'mensaje': 'Asignación creada'}), 201
 
 @asignaciones_bp.route('/<int:id>', methods=['GET'])
+@obra_or_admin_required
 def get_asignacion_id(id):
     asignacion = Asignacion.query.get(id)
     if not asignacion:
@@ -233,7 +252,7 @@ def get_asignacion_id(id):
     return jsonify(asignacion.to_dict())
 
 @asignaciones_bp.route('/<int:id>', methods=['PUT'])
-@admin_required
+@obra_or_admin_required
 def actualizar_asignacion(id):
     asignacion = Asignacion.query.get(id)
     if not asignacion:
@@ -266,6 +285,7 @@ def eliminar_asignacion(id):
 presentismo_bp = Blueprint('presentismo', __name__, url_prefix='/api/presentismo')
 
 @presentismo_bp.route('', methods=['GET'])
+@obra_or_admin_required
 def get_presentismo():
     obra_id = request.args.get('obra_id')
     fecha_inicio = request.args.get('fecha_inicio')
@@ -281,6 +301,7 @@ def get_presentismo():
     return jsonify([p.to_dict() for p in presentismo])
 
 @presentismo_bp.route('', methods=['POST'])
+@obra_or_admin_required
 def crear_presentismo():
     data = request.json
     nuevo = Presentismo(
@@ -295,7 +316,16 @@ def crear_presentismo():
     db.session.commit()
     return jsonify({'id': nuevo.id, 'mensaje': 'Presentismo registrado'}), 201
 
+@presentismo_bp.route('/<int:id>', methods=['GET'])
+@obra_or_admin_required
+def get_presentismo_id(id):
+    presentismo = Presentismo.query.get(id)
+    if not presentismo:
+        return jsonify({'error': 'No encontrado'}), 404
+    return jsonify(presentismo.to_dict())
+
 @presentismo_bp.route('/<int:id>', methods=['PUT'])
+@obra_or_admin_required
 def actualizar_presentismo(id):
     presentismo = Presentismo.query.get(id)
     if not presentismo:
@@ -310,6 +340,7 @@ def actualizar_presentismo(id):
     return jsonify({'mensaje': 'Actualizado'})
 
 @presentismo_bp.route('/<int:id>', methods=['DELETE'])
+@admin_required
 def eliminar_presentismo(id):
     presentismo = Presentismo.query.get(id)
     if not presentismo:
@@ -323,6 +354,7 @@ def eliminar_presentismo(id):
 ingresos_egresos_bp = Blueprint('ingresos_egresos', __name__, url_prefix='/api/ingresos-egresos')
 
 @ingresos_egresos_bp.route('', methods=['GET'])
+@obra_or_admin_required
 def get_ingresos_egresos():
     obra_id = request.args.get('obra_id')
     fecha_inicio = request.args.get('fecha_inicio')
@@ -338,6 +370,7 @@ def get_ingresos_egresos():
     return jsonify([r.to_dict() for r in registros])
 
 @ingresos_egresos_bp.route('', methods=['POST'])
+@obra_or_admin_required
 def crear_ingreso_egreso():
     data = request.json
     nuevo = IngresoEgreso(
@@ -353,7 +386,16 @@ def crear_ingreso_egreso():
     db.session.commit()
     return jsonify({'id': nuevo.id, 'mensaje': 'Registro creado'}), 201
 
+@ingresos_egresos_bp.route('/<int:id>', methods=['GET'])
+@obra_or_admin_required
+def get_ingreso_egreso_id(id):
+    registro = IngresoEgreso.query.get(id)
+    if not registro:
+        return jsonify({'error': 'No encontrado'}), 404
+    return jsonify(registro.to_dict())
+
 @ingresos_egresos_bp.route('/<int:id>', methods=['PUT'])
+@obra_or_admin_required
 def actualizar_ingreso_egreso(id):
     registro = IngresoEgreso.query.get(id)
     if not registro:
@@ -369,6 +411,7 @@ def actualizar_ingreso_egreso(id):
     return jsonify({'mensaje': 'Actualizado'})
 
 @ingresos_egresos_bp.route('/<int:id>', methods=['DELETE'])
+@admin_required
 def eliminar_ingreso_egreso(id):
     registro = IngresoEgreso.query.get(id)
     if not registro:

@@ -43,10 +43,11 @@
 <div id="presentismo-modal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Registrar Presentismo</h3>
+            <h3 id="presentismo-modal-title">Registrar Presentismo</h3>
             <button class="modal-close" onclick="closePresentismoForm()">×</button>
         </div>
         <form id="presentismo-form" onsubmit="savePresentismo(event)">
+            <input type="hidden" id="presentismo-id">
             <div class="form-group">
                 <label>Empleado *</label>
                 <select id="personal_id" required></select>
@@ -127,6 +128,8 @@ async function loadSelectsForPresentismo() {
 
 function openPresentismoForm() {
     loadSelectsForPresentismo();
+    document.getElementById('presentismo-id').value = '';
+    document.getElementById('presentismo-modal-title').textContent = 'Registrar Presentismo';
     document.getElementById('presentismo-modal').classList.add('active');
     document.getElementById('presentismo-form').reset();
 }
@@ -148,8 +151,14 @@ async function savePresentismo(event) {
     };
 
     try {
-        await apiCall('/api/presentismo', 'POST', data);
-        showNotification('Presentismo registrado exitosamente');
+        const id = document.getElementById('presentismo-id').value;
+        if (id) {
+            await apiCall(`/api/presentismo/${id}`, 'PUT', data);
+            showNotification('Presentismo actualizado exitosamente');
+        } else {
+            await apiCall('/api/presentismo', 'POST', data);
+            showNotification('Presentismo registrado exitosamente');
+        }
         closePresentismoForm();
         loadPresentismo();
     } catch (error) {
@@ -185,7 +194,12 @@ async function loadPresentismo() {
                 <td>${tipoDisplay[p.tipo] || p.tipo}</td>
                 <td>${p.descripcion || '-'}</td>
                 <td>
+                    {% if current_user.es_admin() or current_user.es_en_obra() %}
+                    <button class="btn btn-small btn-edit" onclick="editPresentismo(${p.id})" title="Editar">✏️</button>
+                    {% endif %}
+                    {% if current_user.es_admin() %}
                     <button class="btn btn-small btn-delete" onclick="deletePresentismo(${p.id})" title="Eliminar">🗑️</button>
+                    {% endif %}
                 </td>
             `;
             table.appendChild(row);
@@ -221,13 +235,40 @@ async function filterPresentismo() {
                 <td>${p.tipo}</td>
                 <td>${p.descripcion || '-'}</td>
                 <td>
+                    {% if current_user.es_admin() or current_user.es_en_obra() %}
+                    <button class="btn btn-small btn-edit" onclick="editPresentismo(${p.id})" title="Editar">✏️</button>
+                    {% endif %}
+                    {% if current_user.es_admin() %}
                     <button class="btn btn-small btn-delete" onclick="deletePresentismo(${p.id})" title="Eliminar">🗑️</button>
+                    {% endif %}
                 </td>
             `;
             table.appendChild(row);
         });
     } catch (error) {
         console.error('Error filtrando:', error);
+    }
+}
+
+async function editPresentismo(id) {
+    try {
+        await loadSelectsForPresentismo();
+        const response = await fetch(`/api/presentismo/${id}`);
+        const presentismo = await response.json();
+
+        document.getElementById('presentismo-id').value = presentismo.id;
+        document.getElementById('personal_id').value = presentismo.personal_id;
+        document.getElementById('obra_id').value = presentismo.obra_id;
+        document.getElementById('fecha').value = presentismo.fecha || '';
+        document.getElementById('tipo').value = presentismo.tipo || '';
+        document.getElementById('descripcion').value = presentismo.descripcion || '';
+        document.getElementById('notas').value = presentismo.notas || '';
+
+        document.getElementById('presentismo-modal-title').textContent = 'Editar Presentismo';
+        document.getElementById('presentismo-modal').classList.add('active');
+    } catch (error) {
+        console.error('Error cargando presentismo:', error);
+        showNotification('Error al cargar presentismo', 'error');
     }
 }
 

@@ -8,7 +8,7 @@
         📌 Asignaciones de Personal a Obras
     </div>
 
-    {% if current_user.es_admin() %}
+    {% if current_user.es_admin() or current_user.es_en_obra() %}
     <div style="margin-bottom: 20px;">
         <button class="btn btn-add" onclick="openAsignacionForm()">+ Nueva Asignación</button>
     </div>
@@ -176,9 +176,11 @@ async function loadAsignaciones() {
                 <td>${formatDate(a.fecha_asignacion)}</td>
                 <td>${a.estado || 'Activa'}</td>
                 <td>
-                    {% if current_user.es_admin() %}
+                    {% if current_user.es_admin() or current_user.es_en_obra() %}
                     <button class="btn btn-small btn-edit" onclick="editAsignacion(${a.id})" title="Editar">✏️</button>
+                    {% if current_user.es_admin() %}
                     <button class="btn btn-small btn-delete" onclick="deleteAsignacion(${a.id})" title="Eliminar">🗑️</button>
+                    {% endif %}
                     {% else %}
                     -
                     {% endif %}

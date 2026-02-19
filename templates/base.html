@@ -15,10 +15,14 @@
                     <a href="/dashboard" class="nav-link">Inicio</a>
                 </li>
                 <li class="nav-item">
+                    {% if current_user.is_authenticated and current_user.es_admin() %}
                     <a href="/personal" class="nav-link">Personal</a>
+                    {% endif %}
                 </li>
                 <li class="nav-item">
+                    {% if current_user.is_authenticated and current_user.es_admin() %}
                     <a href="/obras" class="nav-link">Obras</a>
+                    {% endif %}
                 </li>
                 <li class="nav-item">
                     <a href="/asignaciones" class="nav-link">Asignaciones</a>

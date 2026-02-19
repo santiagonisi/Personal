@@ -10,6 +10,7 @@
 
 <!-- Cards de Navegación -->
 <section class="dashboard">
+  {% if current_user.es_admin() %}
   <a href="/personal" class="card-link">
     <div class="card">
       <div class="icon">👥</div>
@@ -25,6 +26,7 @@
       <p>Total: {{ total_obras }}</p>
     </div>
   </a>
+  {% endif %}
 
   <a href="/asignaciones" class="card-link">
     <div class="card">
@@ -49,8 +51,10 @@
 <div class="quick-actions">
   <h2 class="quick-actions-title">Acciones Rápidas</h2>
   <div class="action-buttons">
+      {% if current_user.es_admin() %}
         <a href="/personal" class="btn btn-primary">+ Nuevo Empleado</a>
         <a href="/obras" class="btn btn-primary">+ Nueva Obra</a>
+      {% endif %}
         <a href="/asignaciones" class="btn btn-primary">+ Nueva Asignación</a>
         <a href="/presentismo" class="btn btn-secondary">Registrar Presentismo</a>
         <a href="/ingresos-egresos" class="btn btn-secondary">Registrar Entrada/Salida</a>
