@@ -22,7 +22,6 @@
                     <th>Personal</th>
                     <th>Obra</th>
                     <th>Puesto</th>
-                    <th>Salario Diario</th>
                     <th>Fecha Asignación</th>
                     <th>Estado</th>
                     <th>Acciones</th>
@@ -54,10 +53,6 @@
             <div class="form-group">
                 <label>Puesto</label>
                 <input type="text" id="puesto">
-            </div>
-            <div class="form-group">
-                <label>Salario Diario ($)</label>
-                <input type="number" id="salario_diario" step="0.01">
             </div>
             <div class="form-group">
                 <label>Fecha de Asignación *</label>
@@ -127,7 +122,6 @@ async function saveAsignacion(event) {
         personal_id: parseInt(document.getElementById('personal_id').value),
         obra_id: parseInt(document.getElementById('obra_id').value),
         puesto: document.getElementById('puesto').value,
-        salario_diario: document.getElementById('salario_diario').value,
         fecha_asignacion: document.getElementById('fecha_asignacion').value,
         fecha_fin: document.getElementById('fecha_fin').value
     };
@@ -172,7 +166,6 @@ async function loadAsignaciones() {
                 <td>${a.personal_nombre} ${a.personal_apellido}</td>
                 <td>${a.obra_nombre}</td>
                 <td>${a.puesto || '-'}</td>
-                <td>$${a.salario_diario || '-'}</td>
                 <td>${formatDate(a.fecha_asignacion)}</td>
                 <td>${a.estado || 'Activa'}</td>
                 <td>
@@ -206,7 +199,6 @@ async function editAsignacion(id) {
         document.getElementById('personal_id').value = asignacion.personal_id;
         document.getElementById('obra_id').value = asignacion.obra_id;
         document.getElementById('puesto').value = asignacion.puesto || '';
-        document.getElementById('salario_diario').value = asignacion.salario_diario || '';
         document.getElementById('fecha_asignacion').value = asignacion.fecha_asignacion || '';
         document.getElementById('fecha_fin').value = asignacion.fecha_fin || '';
         

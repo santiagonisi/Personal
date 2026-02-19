@@ -3,6 +3,7 @@ from flask_login import login_required, current_user
 from models import Personal, Obra, Asignacion, Presentismo, IngresoEgreso
 from app import db
 from functools import wraps
+from datetime import datetime, timedelta
 
 def admin_required(f):
     """Decorador para requerir rol de admin"""
@@ -21,6 +22,37 @@ def obra_or_admin_required(f):
             return jsonify({'error': 'Acceso denegado. Se requieren permisos de administrador o en_obra.'}), 403
         return f(*args, **kwargs)
     return decorated_function
+
+def calcular_horas_trabajadas(hora_ingreso, hora_egreso):
+    """Calcula horas trabajadas a partir de hora de ingreso y egreso."""
+    if not hora_ingreso or not hora_egreso:
+        return None
+
+    formatos = ['%H:%M', '%H:%M:%S']
+    inicio = None
+    fin = None
+
+    for formato in formatos:
+        try:
+            inicio = datetime.strptime(hora_ingreso, formato)
+            break
+        except ValueError:
+            continue
+
+    for formato in formatos:
+        try:
+            fin = datetime.strptime(hora_egreso, formato)
+            break
+        except ValueError:
+            continue
+
+    if not inicio or not fin:
+        return None
+
+    if fin < inicio:
+        fin += timedelta(days=1)
+
+    return round((fin - inicio).total_seconds() / 3600, 2)
 
 main_bp = Blueprint('main', __name__)
 
@@ -373,13 +405,14 @@ def get_ingresos_egresos():
 @obra_or_admin_required
 def crear_ingreso_egreso():
     data = request.json
+    horas_trabajadas = calcular_horas_trabajadas(data.get('hora_ingreso'), data.get('hora_egreso'))
     nuevo = IngresoEgreso(
         personal_id=data['personal_id'],
         obra_id=data['obra_id'],
         fecha=data['fecha'],
         hora_ingreso=data.get('hora_ingreso'),
         hora_egreso=data.get('hora_egreso'),
-        horas_trabajadas=data.get('horas_trabajadas'),
+        horas_trabajadas=horas_trabajadas,
         notas=data.get('notas')
     )
     db.session.add(nuevo)
@@ -402,9 +435,11 @@ def actualizar_ingreso_egreso(id):
         return jsonify({'error': 'No encontrado'}), 404
     
     data = request.json
-    registro.hora_ingreso = data.get('hora_ingreso', registro.hora_ingreso)
-    registro.hora_egreso = data.get('hora_egreso', registro.hora_egreso)
-    registro.horas_trabajadas = data.get('horas_trabajadas', registro.horas_trabajadas)
+    hora_ingreso = data.get('hora_ingreso', registro.hora_ingreso)
+    hora_egreso = data.get('hora_egreso', registro.hora_egreso)
+    registro.hora_ingreso = hora_ingreso
+    registro.hora_egreso = hora_egreso
+    registro.horas_trabajadas = calcular_horas_trabajadas(hora_ingreso, hora_egreso)
     registro.notas = data.get('notas', registro.notas)
     
     db.session.commit()
