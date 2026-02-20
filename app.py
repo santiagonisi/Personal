@@ -20,6 +20,18 @@ def ensure_personal_lugar_trabajo_column():
         )
         db.session.commit()
 
+def ensure_asignaciones_frente_column():
+    columnas = db.session.execute(text("PRAGMA table_info(asignaciones)")).fetchall()
+    nombres_columnas = {columna[1] for columna in columnas}
+    cambios = False
+
+    if 'frente' not in nombres_columnas:
+        db.session.execute(text("ALTER TABLE asignaciones ADD COLUMN frente VARCHAR(100)"))
+        cambios = True
+
+    if cambios:
+        db.session.commit()
+
 def create_app():
     app = Flask(__name__, 
                 template_folder=os.path.join(os.path.dirname(__file__), 'templates'),
@@ -38,6 +50,7 @@ def create_app():
     with app.app_context():
         db.create_all()
         ensure_personal_lugar_trabajo_column()
+        ensure_asignaciones_frente_column()
         
         # Cargar usuario por ID para Flask-Login
         from models.usuario import Usuario

@@ -13,7 +13,12 @@
             <label>Obra *</label>
             <select id="obra_id" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;"></select>
         </div>
+        <div style="min-width: 190px;">
+            <label>Fecha *</label>
+            <input type="date" id="fecha" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
         <button class="btn btn-edit" onclick="cargarParteDiario()">Cargar Parte</button>
+        <button class="btn btn-success" onclick="guardarTodoParteDiario()">Guardar Todo</button>
     </div>
 
     <div id="resumen" style="margin-bottom: 15px; color: #666;"></div>
@@ -25,6 +30,7 @@
                     <th>Empleado</th>
                     <th>DNI</th>
                     <th>Puesto</th>
+                    <th>En esta obra</th>
                     <th>Presentismo</th>
                     <th>Ingreso</th>
                     <th>Salida</th>
@@ -34,7 +40,7 @@
                 </tr>
             </thead>
             <tbody id="parte-diario-table">
-                <tr><td colspan="9" style="text-align: center;">Seleccione una obra para cargar el parte diario</td></tr>
+                <tr><td colspan="10" style="text-align: center;">Seleccione obra y fecha para cargar el parte diario</td></tr>
             </tbody>
         </table>
     </div>
@@ -47,12 +53,18 @@ async function loadObrasParteDiario() {
         const obraSelect = document.getElementById('obra_id');
         obraSelect.innerHTML = '<option value="">-- Seleccione obra --</option>';
 
-        obras.forEach(o => {
+        const obrasActivas = obras.filter(o => (o.estado || '').toLowerCase() === 'activa');
+
+        obrasActivas.forEach(o => {
             const option = document.createElement('option');
             option.value = o.id;
             option.textContent = o.nombre;
             obraSelect.appendChild(option);
         });
+
+        if (obrasActivas.length > 0) {
+            obraSelect.value = String(obrasActivas[0].id);
+        }
     } catch (error) {
         console.error('Error cargando obras:', error);
     }
@@ -92,6 +104,9 @@ function crearFilaObrero(item, obraId, fecha) {
         <td>${item.nombre} ${item.apellido}</td>
         <td>${item.dni || '-'}</td>
         <td>${item.puesto || '-'}</td>
+        <td style="text-align: center;">
+            <input type="checkbox" class="en-obra" ${item.en_obra ? 'checked' : ''}>
+        </td>
         <td>
             <select class="tipo" style="padding: 6px; border-radius: 4px; width: 170px;">
                 <option value="presente" ${item.tipo === 'presente' ? 'selected' : ''}>Presente</option>
@@ -111,29 +126,61 @@ function crearFilaObrero(item, obraId, fecha) {
         </td>
     `;
 
+    const checkbox = tr.querySelector('.en-obra');
+    const tipoSelect = tr.querySelector('.tipo');
+    const ingresoInput = tr.querySelector('.hora-ingreso');
+    const egresoInput = tr.querySelector('.hora-egreso');
+
+    function aplicarEstadoEnObra() {
+        const enObra = checkbox.checked;
+        if (enObra) {
+            tipoSelect.value = 'presente';
+            ingresoInput.disabled = false;
+            egresoInput.disabled = false;
+        } else {
+            if (tipoSelect.value === 'presente') {
+                tipoSelect.value = 'ausente_sin_aviso';
+            }
+            ingresoInput.value = '';
+            egresoInput.value = '';
+            ingresoInput.disabled = true;
+            egresoInput.disabled = true;
+            calcularHorasFila(tr);
+        }
+    }
+
+    checkbox.addEventListener('change', aplicarEstadoEnObra);
+    tipoSelect.addEventListener('change', () => {
+        checkbox.checked = tipoSelect.value === 'presente';
+        aplicarEstadoEnObra();
+    });
+
     tr.querySelector('.hora-ingreso').addEventListener('change', () => calcularHorasFila(tr));
     tr.querySelector('.hora-egreso').addEventListener('change', () => calcularHorasFila(tr));
+
+    aplicarEstadoEnObra();
 
     return tr;
 }
 
 async function cargarParteDiario() {
     const obraId = document.getElementById('obra_id').value;
+    const fecha = document.getElementById('fecha').value;
 
-    if (!obraId) {
-        showNotification('Seleccione una obra', 'error');
+    if (!obraId || !fecha) {
+        showNotification('Seleccione obra y fecha', 'error');
         return;
     }
 
     try {
-        const data = await apiCall(`/api/parte-diario?obra_id=${obraId}`);
+        const data = await apiCall(`/api/parte-diario?obra_id=${obraId}&fecha=${fecha}`);
         const table = document.getElementById('parte-diario-table');
         const resumen = document.getElementById('resumen');
 
         table.innerHTML = '';
 
         if (!data.filas || data.filas.length === 0) {
-            table.innerHTML = '<tr><td colspan="9" style="text-align: center;">No hay obreros asignados para esta obra en la fecha seleccionada</td></tr>';
+            table.innerHTML = '<tr><td colspan="10" style="text-align: center;">No hay empleados con lugar de trabajo obra</td></tr>';
             resumen.textContent = 'Sin datos para mostrar';
             return;
         }
@@ -142,7 +189,7 @@ async function cargarParteDiario() {
             table.appendChild(crearFilaObrero(item, obraId, data.fecha));
         });
 
-        resumen.textContent = `Obreros asignados: ${data.total_obreros} | Fecha del parte: ${formatDate(data.fecha)}`;
+        resumen.textContent = `Empleados de obra: ${data.total_obreros} | Fecha del parte: ${formatDate(data.fecha)}`;
     } catch (error) {
         console.error('Error cargando parte diario:', error);
         showNotification('Error al cargar parte diario', 'error');
@@ -151,10 +198,23 @@ async function cargarParteDiario() {
 
 async function guardarFila(button, obraId, fecha) {
     const fila = button.closest('tr');
+
+    try {
+        await guardarFilaDesdeElemento(fila, obraId, fecha);
+        showNotification('Dato guardado correctamente');
+    } catch (error) {
+        console.error('Error guardando fila:', error);
+        showNotification('No se pudo guardar el dato del obrero', 'error');
+    }
+}
+
+async function guardarFilaDesdeElemento(fila, obraId, fecha) {
     const personalId = parseInt(fila.dataset.personalId);
-    const tipo = fila.querySelector('.tipo').value;
-    const horaIngreso = fila.querySelector('.hora-ingreso').value;
-    const horaEgreso = fila.querySelector('.hora-egreso').value;
+    const enObra = fila.querySelector('.en-obra').checked;
+    const tipoSeleccionado = fila.querySelector('.tipo').value;
+    const tipo = enObra ? 'presente' : (tipoSeleccionado === 'presente' ? 'ausente_sin_aviso' : tipoSeleccionado);
+    const horaIngreso = enObra ? fila.querySelector('.hora-ingreso').value : '';
+    const horaEgreso = enObra ? fila.querySelector('.hora-egreso').value : '';
     const notas = fila.querySelector('.notas').value;
 
     calcularHorasFila(fila);
@@ -170,16 +230,46 @@ async function guardarFila(button, obraId, fecha) {
         notas
     };
 
-    try {
-        await apiCall('/api/parte-diario', 'POST', payload);
-        showNotification('Dato guardado correctamente');
-    } catch (error) {
-        console.error('Error guardando fila:', error);
-        showNotification('No se pudo guardar el dato del obrero', 'error');
+    await apiCall('/api/parte-diario', 'POST', payload);
+}
+
+async function guardarTodoParteDiario() {
+    const obraId = parseInt(document.getElementById('obra_id').value);
+    const fecha = document.getElementById('fecha').value;
+
+    if (!obraId || !fecha) {
+        showNotification('Seleccione obra y fecha', 'error');
+        return;
+    }
+
+    const filas = Array.from(document.querySelectorAll('#parte-diario-table tr[data-personal-id]'));
+    if (filas.length === 0) {
+        showNotification('No hay filas para guardar', 'error');
+        return;
+    }
+
+    let guardadas = 0;
+    let fallidas = 0;
+
+    for (const fila of filas) {
+        try {
+            await guardarFilaDesdeElemento(fila, obraId, fecha);
+            guardadas += 1;
+        } catch (error) {
+            console.error('Error guardando fila:', error);
+            fallidas += 1;
+        }
+    }
+
+    if (fallidas === 0) {
+        showNotification(`Parte diario guardado: ${guardadas} empleados`);
+    } else {
+        showNotification(`Guardadas: ${guardadas} | Fallidas: ${fallidas}`, 'error');
     }
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+    document.getElementById('fecha').value = new Date().toISOString().split('T')[0];
     await loadObrasParteDiario();
 });
 </script>

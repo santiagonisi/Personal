@@ -75,6 +75,7 @@ class Asignacion(db.Model):
     fecha_asignacion = db.Column(db.String(10), nullable=False)
     fecha_fin = db.Column(db.String(10))
     puesto = db.Column(db.String(100))
+    frente = db.Column(db.String(100))
     estado = db.Column(db.String(20), default='activa')
     fecha_creacion = db.Column(db.DateTime, default=datetime.now)
     
@@ -93,6 +94,7 @@ class Asignacion(db.Model):
             'fecha_asignacion': self.fecha_asignacion,
             'fecha_fin': self.fecha_fin,
             'puesto': self.puesto,
+            'frente': self.frente,
             'estado': self.estado
         }
 

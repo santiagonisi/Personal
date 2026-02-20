@@ -324,7 +324,8 @@ def crear_asignacion():
         personal_id=data['personal_id'],
         obra_id=data['obra_id'],
         fecha_asignacion=data['fecha_asignacion'],
-        puesto=data.get('puesto')
+        puesto=data.get('puesto'),
+        frente=data.get('frente')
     )
     db.session.add(nueva)
     db.session.commit()
@@ -349,6 +350,7 @@ def actualizar_asignacion(id):
     asignacion.personal_id = data.get('personal_id', asignacion.personal_id)
     asignacion.obra_id = data.get('obra_id', asignacion.obra_id)
     asignacion.puesto = data.get('puesto', asignacion.puesto)
+    asignacion.frente = data.get('frente', asignacion.frente)
     asignacion.fecha_asignacion = data.get('fecha_asignacion', asignacion.fecha_asignacion)
     asignacion.fecha_fin = data.get('fecha_fin', asignacion.fecha_fin)
     asignacion.estado = data.get('estado', asignacion.estado)
@@ -377,29 +379,30 @@ def get_parte_diario():
     if not obra_id:
         return jsonify({'error': 'obra_id es requerido'}), 400
 
+    personal_obra = Personal.query.filter_by(lugar_trabajo='obra').order_by(Personal.apellido.asc(), Personal.nombre.asc()).all()
     asignaciones = Asignacion.query.filter_by(obra_id=obra_id, estado='activa').all()
     presentismos = Presentismo.query.filter_by(obra_id=obra_id, fecha=fecha).all()
     ingresos_egresos = IngresoEgreso.query.filter_by(obra_id=obra_id, fecha=fecha).all()
 
+    puesto_por_personal = {a.personal_id: a.puesto for a in asignaciones}
     presentismo_por_personal = {p.personal_id: p for p in presentismos}
     ingreso_por_personal = {i.personal_id: i for i in ingresos_egresos}
 
     filas = []
-    for asignacion in asignaciones:
-        if not asignacion_activa_en_fecha(asignacion, fecha):
-            continue
-
-        presentismo = presentismo_por_personal.get(asignacion.personal_id)
-        ingreso = ingreso_por_personal.get(asignacion.personal_id)
+    for persona in personal_obra:
+        presentismo = presentismo_por_personal.get(persona.id)
+        ingreso = ingreso_por_personal.get(persona.id)
+        tipo = presentismo.tipo if presentismo else 'ausente_sin_aviso'
 
         filas.append({
-            'personal_id': asignacion.personal_id,
-            'nombre': asignacion.personal.nombre,
-            'apellido': asignacion.personal.apellido,
-            'dni': asignacion.personal.dni,
-            'puesto': asignacion.puesto,
+            'personal_id': persona.id,
+            'nombre': persona.nombre,
+            'apellido': persona.apellido,
+            'dni': persona.dni,
+            'puesto': puesto_por_personal.get(persona.id),
             'presentismo_id': presentismo.id if presentismo else None,
-            'tipo': presentismo.tipo if presentismo else 'presente',
+            'tipo': tipo,
+            'en_obra': tipo == 'presente',
             'descripcion': presentismo.descripcion if presentismo else '',
             'ingreso_egreso_id': ingreso.id if ingreso else None,
             'hora_ingreso': ingreso.hora_ingreso if ingreso else '',
@@ -432,9 +435,6 @@ def guardar_parte_diario():
 
     if not obra_id or not personal_id or not tipo:
         return jsonify({'error': 'obra_id, personal_id y tipo son requeridos'}), 400
-
-    if not obtener_asignacion_activa(personal_id, obra_id, fecha):
-        return jsonify({'error': 'El obrero no tiene asignación activa en esa obra y fecha'}), 400
 
     presentismo = Presentismo.query.filter_by(
         obra_id=obra_id,

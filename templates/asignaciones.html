@@ -21,6 +21,7 @@
                     <th>ID</th>
                     <th>Personal</th>
                     <th>Lugar Físico</th>
+                    <th>Frente (Capataz)</th>
                     <th>Puesto</th>
                     <th>Fecha Asignación</th>
                     <th>Estado</th>
@@ -28,7 +29,7 @@
                 </tr>
             </thead>
             <tbody id="asignaciones-table">
-                <tr><td colspan="7" style="text-align: center;">Cargando...</td></tr>
+                <tr><td colspan="8" style="text-align: center;">Cargando...</td></tr>
             </tbody>
         </table>
     </div>
@@ -50,9 +51,10 @@
                 <label>Lugar Físico</label>
                 <input type="text" id="lugar_fisico" readonly placeholder="Seleccione empleado">
             </div>
-            <div class="form-group" id="obra-group">
-                <label>Obra *</label>
-                <select id="obra_id" required></select>
+            <input type="hidden" id="obra_id">
+            <div class="form-group">
+                <label>Frente (Capataz)</label>
+                <input type="text" id="frente" placeholder="Nombre del capataz">
             </div>
             <div class="form-group">
                 <label>Puesto</label>
@@ -87,21 +89,10 @@ function capitalize(texto) {
 function updateLugarYObraUI() {
     const personalId = document.getElementById('personal_id').value;
     const lugarInput = document.getElementById('lugar_fisico');
-    const obraGroup = document.getElementById('obra-group');
-    const obraSelect = document.getElementById('obra_id');
 
     const persona = personalMap[personalId];
     const lugar = persona?.lugar_trabajo || '';
     lugarInput.value = capitalize(lugar);
-
-    if (lugar === 'obra') {
-        obraGroup.style.display = '';
-        obraSelect.required = true;
-    } else {
-        obraSelect.value = '';
-        obraSelect.required = false;
-        obraGroup.style.display = 'none';
-    }
 }
 
 async function loadSelects() {
@@ -121,14 +112,9 @@ async function loadSelects() {
 
         const obrasRes = await fetch('/api/obras');
         const obras = await obrasRes.json();
-        const obraSelect = document.getElementById('obra_id');
-        obraSelect.innerHTML = '<option value="">-- Seleccione obra --</option>';
-        obras.forEach(o => {
-            const option = document.createElement('option');
-            option.value = o.id;
-            option.textContent = o.nombre;
-            obraSelect.appendChild(option);
-        });
+        const obraIdInput = document.getElementById('obra_id');
+        const obraActiva = obras.find(o => (o.estado || '').toLowerCase() === 'activa') || obras[0];
+        obraIdInput.value = obraActiva ? obraActiva.id : '';
 
         updateLugarYObraUI();
     } catch (error) {
@@ -156,13 +142,14 @@ async function saveAsignacion(event) {
     const data = {
         personal_id: parseInt(document.getElementById('personal_id').value),
         obra_id: parseInt(document.getElementById('obra_id').value),
+        frente: document.getElementById('frente').value,
         puesto: document.getElementById('puesto').value,
         fecha_asignacion: document.getElementById('fecha_asignacion').value,
         fecha_fin: document.getElementById('fecha_fin').value
     };
 
     if (!data.obra_id) {
-        showNotification('Para asignar, el empleado debe tener lugar físico en obra y seleccionar una obra', 'error');
+        showNotification('No hay obras disponibles para asignar', 'error');
         return;
     }
 
@@ -205,6 +192,7 @@ async function loadAsignaciones() {
                 <td>${a.id}</td>
                 <td>${a.personal_nombre} ${a.personal_apellido}</td>
                 <td>${formatLugarTrabajo(a.personal_lugar_trabajo)}</td>
+                <td>${a.frente || '-'}</td>
                 <td>${a.puesto || '-'}</td>
                 <td>${formatDate(a.fecha_asignacion)}</td>
                 <td>${a.estado || 'Activa'}</td>
@@ -238,6 +226,7 @@ async function editAsignacion(id) {
         document.getElementById('asignacion-id').value = asignacion.id;
         document.getElementById('personal_id').value = asignacion.personal_id;
         document.getElementById('obra_id').value = asignacion.obra_id;
+        document.getElementById('frente').value = asignacion.frente || '';
         document.getElementById('puesto').value = asignacion.puesto || '';
         document.getElementById('fecha_asignacion').value = asignacion.fecha_asignacion || '';
         document.getElementById('fecha_fin').value = asignacion.fecha_fin || '';
