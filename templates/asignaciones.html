@@ -112,14 +112,30 @@ async function loadSelects() {
 
         const obrasRes = await fetch('/api/obras');
         const obras = await obrasRes.json();
-        const obraIdInput = document.getElementById('obra_id');
-        const obraActiva = obras.find(o => (o.estado || '').toLowerCase() === 'activa') || obras[0];
-        obraIdInput.value = obraActiva ? obraActiva.id : '';
+        setObraIdPorDefecto(obras);
 
         updateLugarYObraUI();
     } catch (error) {
         console.error('Error cargando selects:', error);
     }
+}
+
+function setObraIdPorDefecto(obras) {
+    const obraIdInput = document.getElementById('obra_id');
+    const obraActiva = obras.find(o => (o.estado || '').toLowerCase() === 'activa') || obras[0];
+    obraIdInput.value = obraActiva ? obraActiva.id : '';
+}
+
+async function ensureObraId() {
+    const obraIdInput = document.getElementById('obra_id');
+    if (obraIdInput.value) {
+        return parseInt(obraIdInput.value);
+    }
+
+    const obrasRes = await fetch('/api/obras');
+    const obras = await obrasRes.json();
+    setObraIdPorDefecto(obras);
+    return obraIdInput.value ? parseInt(obraIdInput.value) : null;
 }
 
 function openAsignacionForm() {
@@ -138,13 +154,27 @@ function closeAsignacionForm() {
 
 async function saveAsignacion(event) {
     event.preventDefault();
+
+    const personalId = parseInt(document.getElementById('personal_id').value);
+    const obraId = await ensureObraId();
+    const fechaAsignacion = document.getElementById('fecha_asignacion').value;
+
+    if (!personalId) {
+        showNotification('Seleccione un empleado', 'error');
+        return;
+    }
+
+    if (!fechaAsignacion) {
+        showNotification('Seleccione fecha de asignación', 'error');
+        return;
+    }
     
     const data = {
-        personal_id: parseInt(document.getElementById('personal_id').value),
-        obra_id: parseInt(document.getElementById('obra_id').value),
+        personal_id: personalId,
+        obra_id: obraId,
         frente: document.getElementById('frente').value,
         puesto: document.getElementById('puesto').value,
-        fecha_asignacion: document.getElementById('fecha_asignacion').value,
+        fecha_asignacion: fechaAsignacion,
         fecha_fin: document.getElementById('fecha_fin').value
     };
 
