@@ -16,18 +16,15 @@
                 <tr>
                     <th>Obrero</th>
                     <th>DNI</th>
-                    <th>Obras</th>
-                    <th>Horas Totales</th>
+                    <th>Hs Acumuladas</th>
                     <th>Días Trabajados</th>
                     <th>Presente</th>
                     <th>No Presente</th>
-                    <th>Justificados</th>
-                    <th>Sin Justificar</th>
                     <th>Detalle</th>
                 </tr>
             </thead>
             <tbody id="historico-table">
-                <tr><td colspan="10" style="text-align: center;">Cargando histórico...</td></tr>
+                <tr><td colspan="7" style="text-align: center;">Cargando histórico...</td></tr>
             </tbody>
         </table>
     </div>
@@ -36,9 +33,10 @@
 <div id="justificaciones-modal" class="modal">
     <div class="modal-content" style="max-width: 900px;">
         <div class="modal-header">
-            <h3 id="justificaciones-title">Justificaciones</h3>
+            <h3 id="justificaciones-title">Detalle del Obrero</h3>
             <button class="modal-close" onclick="closeJustificacionesModal()">×</button>
         </div>
+        <h4 style="margin-bottom: 10px;">Días no presentes sin justificación</h4>
         <div style="overflow-x: auto;">
             <table>
                 <thead>
@@ -52,6 +50,22 @@
                 <tbody id="justificaciones-table"></tbody>
             </table>
         </div>
+
+        <h4 style="margin: 20px 0 10px;">Obras donde trabajó</h4>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Obra</th>
+                        <th>Frente</th>
+                        <th>Puesto</th>
+                        <th>Desde</th>
+                        <th>Hasta</th>
+                    </tr>
+                </thead>
+                <tbody id="obras-trabajadas-table"></tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -60,7 +74,18 @@ let historicoData = [];
 
 function formatObras(obras) {
     if (!obras || obras.length === 0) return '-';
-    return obras.map(o => `${o.obra_nombre}`).join(', ');
+    return obras.map(o => {
+        if (o.frente) {
+            return `${o.obra_nombre} (${o.frente})`;
+        }
+        return `${o.obra_nombre}`;
+    }).join(', ');
+}
+
+function formatLugarTrabajo(lugar) {
+    if (!lugar) return '-';
+    const valor = String(lugar).toLowerCase();
+    return valor.charAt(0).toUpperCase() + valor.slice(1);
 }
 
 function renderHistoricoRows(data) {
@@ -68,7 +93,7 @@ function renderHistoricoRows(data) {
     table.innerHTML = '';
 
     if (!data || data.length === 0) {
-        table.innerHTML = '<tr><td colspan="10" style="text-align: center;">No hay datos históricos para mostrar</td></tr>';
+        table.innerHTML = '<tr><td colspan="7" style="text-align: center;">No hay datos históricos para mostrar</td></tr>';
         return;
     }
 
@@ -77,13 +102,10 @@ function renderHistoricoRows(data) {
         row.innerHTML = `
             <td>${item.apellido}, ${item.nombre}</td>
             <td>${item.dni || '-'}</td>
-            <td>${formatObras(item.obras)}</td>
             <td>${item.total_horas || 0} hs</td>
             <td>${item.dias_trabajados || 0}</td>
             <td>${item.presentes || 0}</td>
             <td>${item.no_presentes || 0}</td>
-            <td>${item.no_presentes_justificados || 0}</td>
-            <td>${item.no_presentes_sin_justificar || 0}</td>
             <td>
                 <button class="btn btn-small btn-edit" onclick="openJustificacionesModal(${item.personal_id})">Ver</button>
             </td>
@@ -106,14 +128,18 @@ function openJustificacionesModal(personalId) {
     const obrero = historicoData.find(x => x.personal_id === personalId);
     if (!obrero) return;
 
-    document.getElementById('justificaciones-title').textContent = `Justificaciones - ${obrero.apellido}, ${obrero.nombre}`;
-    const table = document.getElementById('justificaciones-table');
-    table.innerHTML = '';
+    document.getElementById('justificaciones-title').textContent = `Detalle - ${obrero.apellido}, ${obrero.nombre}`;
+    const ausenciasTable = document.getElementById('justificaciones-table');
+    const obrasTable = document.getElementById('obras-trabajadas-table');
+    ausenciasTable.innerHTML = '';
+    obrasTable.innerHTML = '';
 
-    if (!obrero.justificaciones || obrero.justificaciones.length === 0) {
-        table.innerHTML = '<tr><td colspan="4" style="text-align: center;">Sin justificaciones registradas</td></tr>';
+    const ausenciasSinJustificar = (obrero.justificaciones || []).filter(j => j.tipo === 'ausente_sin_aviso');
+
+    if (ausenciasSinJustificar.length === 0) {
+        ausenciasTable.innerHTML = '<tr><td colspan="4" style="text-align: center;">Sin ausencias sin justificación</td></tr>';
     } else {
-        obrero.justificaciones.forEach(j => {
+        ausenciasSinJustificar.forEach(j => {
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${formatDate(j.fecha)}</td>
@@ -121,7 +147,23 @@ function openJustificacionesModal(personalId) {
                 <td>${j.tipo}</td>
                 <td>${j.detalle || '-'}</td>
             `;
-            table.appendChild(row);
+            ausenciasTable.appendChild(row);
+        });
+    }
+
+    if (!obrero.obras || obrero.obras.length === 0) {
+        obrasTable.innerHTML = '<tr><td colspan="5" style="text-align: center;">Sin obras registradas</td></tr>';
+    } else {
+        obrero.obras.forEach(o => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${o.obra_nombre || '-'}</td>
+                <td>${o.frente || '-'}</td>
+                <td>${o.puesto || '-'}</td>
+                <td>${formatDate(o.fecha_asignacion)}</td>
+                <td>${formatDate(o.fecha_fin) || '-'}</td>
+            `;
+            obrasTable.appendChild(row);
         });
     }
 

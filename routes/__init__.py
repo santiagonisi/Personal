@@ -499,7 +499,7 @@ def get_historico_obreros():
     historico = []
 
     for obrero in personal_list:
-        asignaciones = Asignacion.query.filter_by(personal_id=obrero.id).all()
+        asignaciones = Asignacion.query.filter_by(personal_id=obrero.id).order_by(Asignacion.fecha_asignacion.desc(), Asignacion.id.desc()).all()
         presentismos = Presentismo.query.filter_by(personal_id=obrero.id).all()
         ingresos = IngresoEgreso.query.filter_by(personal_id=obrero.id).all()
 
@@ -514,7 +514,8 @@ def get_historico_obreros():
                 'obra_nombre': asignacion.obra.nombre if asignacion.obra else 'Sin obra',
                 'fecha_asignacion': asignacion.fecha_asignacion,
                 'fecha_fin': asignacion.fecha_fin,
-                'puesto': asignacion.puesto
+                'puesto': asignacion.puesto,
+                'frente': asignacion.frente
             })
 
         total_horas = round(sum((ing.horas_trabajadas or 0) for ing in ingresos), 2)
@@ -536,11 +537,14 @@ def get_historico_obreros():
                 'detalle': p.descripcion or p.notas or '-'
             })
 
+        justificaciones.sort(key=lambda x: x.get('fecha') or '', reverse=True)
+
         historico.append({
             'personal_id': obrero.id,
             'nombre': obrero.nombre,
             'apellido': obrero.apellido,
             'dni': obrero.dni,
+            'lugar_trabajo': obrero.lugar_trabajo,
             'obras': obras,
             'total_horas': total_horas,
             'dias_trabajados': dias_trabajados,
