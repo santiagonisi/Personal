@@ -20,6 +20,55 @@ def ensure_personal_lugar_trabajo_column():
         )
         db.session.commit()
 
+def cleanup_personal_legacy_columns():
+    columnas = db.session.execute(text("PRAGMA table_info(personal)")).fetchall()
+    nombres_columnas = {columna[1] for columna in columnas}
+    columnas_legacy = {'fecha_nacimiento', 'domicilio', 'ciudad', 'provincia', 'codigo_postal'}
+
+    if not (columnas_legacy & nombres_columnas):
+        return
+
+    db.session.execute(text("PRAGMA foreign_keys=OFF"))
+    db.session.execute(text("DROP TABLE IF EXISTS personal_new"))
+    db.session.execute(text("""
+        CREATE TABLE personal_new (
+            id INTEGER PRIMARY KEY,
+            nombre VARCHAR(100) NOT NULL,
+            apellido VARCHAR(100) NOT NULL,
+            email VARCHAR(100),
+            telefono VARCHAR(20),
+            dni VARCHAR(20) UNIQUE,
+            estado VARCHAR(20) DEFAULT 'activo',
+            lugar_trabajo VARCHAR(20) DEFAULT 'obra',
+            fecha_ingreso VARCHAR(10),
+            fecha_creacion DATETIME
+        )
+    """))
+    db.session.execute(text("""
+        INSERT INTO personal_new (
+            id, nombre, apellido, email, telefono, dni, estado, lugar_trabajo, fecha_ingreso, fecha_creacion
+        )
+        SELECT
+            id,
+            nombre,
+            apellido,
+            email,
+            telefono,
+            dni,
+            COALESCE(estado, 'activo'),
+            CASE
+                WHEN lugar_trabajo IN ('oficina', 'obra', 'planta') THEN lugar_trabajo
+                ELSE 'obra'
+            END,
+            fecha_ingreso,
+            fecha_creacion
+        FROM personal
+    """))
+    db.session.execute(text("DROP TABLE personal"))
+    db.session.execute(text("ALTER TABLE personal_new RENAME TO personal"))
+    db.session.execute(text("PRAGMA foreign_keys=ON"))
+    db.session.commit()
+
 def ensure_asignaciones_frente_column():
     columnas = db.session.execute(text("PRAGMA table_info(asignaciones)")).fetchall()
     nombres_columnas = {columna[1] for columna in columnas}
@@ -50,6 +99,7 @@ def create_app():
     with app.app_context():
         db.create_all()
         ensure_personal_lugar_trabajo_column()
+        cleanup_personal_legacy_columns()
         ensure_asignaciones_frente_column()
         
         # Cargar usuario por ID para Flask-Login

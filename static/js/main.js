@@ -25,12 +25,20 @@ async function apiCall(endpoint, method = 'GET', data = null) {
     try {
         const response = await fetch(endpoint, options);
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            let errorMessage = `HTTP error! status: ${response.status}`;
+            try {
+                const errorPayload = await response.json();
+                if (errorPayload && errorPayload.error) {
+                    errorMessage = errorPayload.error;
+                }
+            } catch (_) {
+            }
+            throw new Error(errorMessage);
         }
         return await response.json();
     } catch (error) {
         console.error('Error:', error);
-        showNotification('Error en la solicitud', 'error');
+        showNotification(error.message || 'Error en la solicitud', 'error');
         throw error;
     }
 }

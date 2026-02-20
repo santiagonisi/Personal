@@ -10,11 +10,6 @@ class Personal(db.Model):
     email = db.Column(db.String(100))
     telefono = db.Column(db.String(20))
     dni = db.Column(db.String(20), unique=True)
-    fecha_nacimiento = db.Column(db.String(10))
-    domicilio = db.Column(db.String(200))
-    ciudad = db.Column(db.String(100))
-    provincia = db.Column(db.String(100))
-    codigo_postal = db.Column(db.String(10))
     estado = db.Column(db.String(20), default='activo')
     lugar_trabajo = db.Column(db.String(20), default='obra')
     fecha_ingreso = db.Column(db.String(10), nullable=True)
@@ -28,11 +23,6 @@ class Personal(db.Model):
             'email': self.email,
             'telefono': self.telefono,
             'dni': self.dni,
-            'fecha_nacimiento': self.fecha_nacimiento,
-            'domicilio': self.domicilio,
-            'ciudad': self.ciudad,
-            'provincia': self.provincia,
-            'codigo_postal': self.codigo_postal,
             'estado': self.estado,
             'lugar_trabajo': self.lugar_trabajo,
             'fecha_ingreso': self.fecha_ingreso

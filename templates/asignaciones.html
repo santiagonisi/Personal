@@ -97,8 +97,7 @@ function updateLugarYObraUI() {
 
 async function loadSelects() {
     try {
-        const personalRes = await fetch('/api/personal');
-        const personal = await personalRes.json();
+        const personal = await apiCall('/api/personal');
         const personalSelect = document.getElementById('personal_id');
         personalSelect.innerHTML = '<option value="">-- Seleccione empleado --</option>';
         personalMap = {};
@@ -110,8 +109,7 @@ async function loadSelects() {
             personalSelect.appendChild(option);
         });
 
-        const obrasRes = await fetch('/api/obras');
-        const obras = await obrasRes.json();
+        const obras = await apiCall('/api/obras');
         setObraIdPorDefecto(obras);
 
         updateLugarYObraUI();
@@ -132,8 +130,7 @@ async function ensureObraId() {
         return parseInt(obraIdInput.value);
     }
 
-    const obrasRes = await fetch('/api/obras');
-    const obras = await obrasRes.json();
+    const obras = await apiCall('/api/obras');
     setObraIdPorDefecto(obras);
     return obraIdInput.value ? parseInt(obraIdInput.value) : null;
 }
@@ -186,17 +183,9 @@ async function saveAsignacion(event) {
     try {
         const id = document.getElementById('asignacion-id').value;
         if (id) {
-            // Editar
-            const response = await fetch(`/api/asignaciones/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            if (response.ok) {
-                showNotification('Asignación actualizada exitosamente');
-            }
+            await apiCall(`/api/asignaciones/${id}`, 'PUT', data);
+            showNotification('Asignación actualizada exitosamente');
         } else {
-            // Crear
             await apiCall('/api/asignaciones', 'POST', data);
             showNotification('Asignación creada exitosamente');
         }
@@ -210,8 +199,7 @@ async function saveAsignacion(event) {
 
 async function loadAsignaciones() {
     try {
-        const response = await fetch('/api/asignaciones');
-        const asignaciones = await response.json();
+        const asignaciones = await apiCall('/api/asignaciones');
         
         const table = document.getElementById('asignaciones-table');
         table.innerHTML = '';
@@ -250,8 +238,7 @@ async function editAsignacion(id) {
         await loadSelects();
         
         // Luego cargar los datos de la asignación
-        const response = await fetch(`/api/asignaciones/${id}`);
-        const asignacion = await response.json();
+        const asignacion = await apiCall(`/api/asignaciones/${id}`);
         
         document.getElementById('asignacion-id').value = asignacion.id;
         document.getElementById('personal_id').value = asignacion.personal_id;
@@ -274,7 +261,7 @@ async function editAsignacion(id) {
 async function deleteAsignacion(id) {
     if (confirm('¿Desea eliminar esta asignación?')) {
         try {
-            await fetch(`/api/asignaciones/${id}`, { method: 'DELETE' });
+            await apiCall(`/api/asignaciones/${id}`, 'DELETE');
             showNotification('Asignación eliminada');
             loadAsignaciones();
         } catch (error) {

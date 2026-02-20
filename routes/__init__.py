@@ -77,31 +77,6 @@ def actualizar_estados_obras_por_fecha():
     if cambios:
         db.session.commit()
 
-def asignacion_activa_en_fecha(asignacion, fecha):
-    """Retorna True si la asignación está activa en la fecha indicada (YYYY-MM-DD)."""
-    if not asignacion or not fecha:
-        return False
-    if asignacion.estado != 'activa':
-        return False
-    if asignacion.fecha_asignacion and asignacion.fecha_asignacion > fecha:
-        return False
-    if asignacion.fecha_fin and asignacion.fecha_fin < fecha:
-        return False
-    return True
-
-def obtener_asignacion_activa(personal_id, obra_id, fecha):
-    """Obtiene una asignación activa de un obrero en una obra para una fecha."""
-    asignaciones = Asignacion.query.filter_by(
-        personal_id=personal_id,
-        obra_id=obra_id,
-        estado='activa'
-    ).all()
-
-    for asignacion in asignaciones:
-        if asignacion_activa_en_fecha(asignacion, fecha):
-            return asignacion
-    return None
-
 main_bp = Blueprint('main', __name__)
 
 @main_bp.route('/')
@@ -176,6 +151,10 @@ def crear_personal():
         
         if not data.get('nombre') or not data.get('apellido'):
             return jsonify({'error': 'Nombre y Apellido son requeridos'}), 400
+
+        lugar_trabajo = data.get('lugar_trabajo', 'obra')
+        if lugar_trabajo not in ['oficina', 'obra', 'planta']:
+            return jsonify({'error': 'lugar_trabajo debe ser oficina, obra o planta'}), 400
         
         nuevo = Personal(
             nombre=data['nombre'],
@@ -183,12 +162,7 @@ def crear_personal():
             email=data.get('email'),
             telefono=data.get('telefono'),
             dni=data.get('dni'),
-            fecha_nacimiento=data.get('fecha_nacimiento'),
-            domicilio=data.get('domicilio'),
-            ciudad=data.get('ciudad'),
-            provincia=data.get('provincia'),
-            codigo_postal=data.get('codigo_postal'),
-            lugar_trabajo=data.get('lugar_trabajo', 'obra'),
+            lugar_trabajo=lugar_trabajo,
             fecha_ingreso=data.get('fecha_ingreso', '')
         )
         db.session.add(nuevo)
@@ -209,27 +183,29 @@ def get_personal_id(id):
 @personal_bp.route('/<int:id>', methods=['PUT'])
 @admin_required
 def actualizar_personal(id):
-    personal = Personal.query.get(id)
-    if not personal:
-        return jsonify({'error': 'No encontrado'}), 404
-    
-    data = request.json
-    personal.nombre = data.get('nombre', personal.nombre)
-    personal.apellido = data.get('apellido', personal.apellido)
-    personal.email = data.get('email', personal.email)
-    personal.telefono = data.get('telefono', personal.telefono)
-    personal.dni = data.get('dni', personal.dni)
-    personal.fecha_nacimiento = data.get('fecha_nacimiento', personal.fecha_nacimiento)
-    personal.domicilio = data.get('domicilio', personal.domicilio)
-    personal.ciudad = data.get('ciudad', personal.ciudad)
-    personal.provincia = data.get('provincia', personal.provincia)
-    personal.codigo_postal = data.get('codigo_postal', personal.codigo_postal)
-    personal.lugar_trabajo = data.get('lugar_trabajo', personal.lugar_trabajo)
-    personal.fecha_ingreso = data.get('fecha_ingreso', personal.fecha_ingreso)
-    personal.estado = data.get('estado', personal.estado)
-    
-    db.session.commit()
-    return jsonify({'mensaje': 'Actualizado'})
+    try:
+        personal = Personal.query.get(id)
+        if not personal:
+            return jsonify({'error': 'No encontrado'}), 404
+
+        data = request.json or {}
+        if 'lugar_trabajo' in data and data.get('lugar_trabajo') not in ['oficina', 'obra', 'planta']:
+            return jsonify({'error': 'lugar_trabajo debe ser oficina, obra o planta'}), 400
+
+        personal.nombre = data.get('nombre', personal.nombre)
+        personal.apellido = data.get('apellido', personal.apellido)
+        personal.email = data.get('email', personal.email)
+        personal.telefono = data.get('telefono', personal.telefono)
+        personal.dni = data.get('dni', personal.dni)
+        personal.lugar_trabajo = data.get('lugar_trabajo', personal.lugar_trabajo)
+        personal.fecha_ingreso = data.get('fecha_ingreso', personal.fecha_ingreso)
+        personal.estado = data.get('estado', personal.estado)
+
+        db.session.commit()
+        return jsonify({'mensaje': 'Actualizado'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'No se pudo actualizar el empleado: {str(e)}'}), 500
 
 @personal_bp.route('/<int:id>', methods=['DELETE'])
 @admin_required
@@ -313,23 +289,31 @@ asignaciones_bp = Blueprint('asignaciones', __name__, url_prefix='/api/asignacio
 @asignaciones_bp.route('', methods=['GET'])
 @obra_or_admin_required
 def get_asignaciones():
-    asignaciones = Asignacion.query.all()
+    asignaciones = Asignacion.query.order_by(Asignacion.fecha_asignacion.desc(), Asignacion.id.desc()).all()
     return jsonify([a.to_dict() for a in asignaciones])
 
 @asignaciones_bp.route('', methods=['POST'])
 @obra_or_admin_required
 def crear_asignacion():
-    data = request.json
-    nueva = Asignacion(
-        personal_id=data['personal_id'],
-        obra_id=data['obra_id'],
-        fecha_asignacion=data['fecha_asignacion'],
-        puesto=data.get('puesto'),
-        frente=data.get('frente')
-    )
-    db.session.add(nueva)
-    db.session.commit()
-    return jsonify({'id': nueva.id, 'mensaje': 'Asignación creada'}), 201
+    try:
+        data = request.json or {}
+
+        if not data.get('personal_id') or not data.get('obra_id') or not data.get('fecha_asignacion'):
+            return jsonify({'error': 'personal_id, obra_id y fecha_asignacion son requeridos'}), 400
+
+        nueva = Asignacion(
+            personal_id=data['personal_id'],
+            obra_id=data['obra_id'],
+            fecha_asignacion=data['fecha_asignacion'],
+            puesto=data.get('puesto'),
+            frente=data.get('frente')
+        )
+        db.session.add(nueva)
+        db.session.commit()
+        return jsonify({'id': nueva.id, 'mensaje': 'Asignación creada'}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'No se pudo crear la asignación: {str(e)}'}), 500
 
 @asignaciones_bp.route('/<int:id>', methods=['GET'])
 @obra_or_admin_required
@@ -342,21 +326,28 @@ def get_asignacion_id(id):
 @asignaciones_bp.route('/<int:id>', methods=['PUT'])
 @obra_or_admin_required
 def actualizar_asignacion(id):
-    asignacion = Asignacion.query.get(id)
-    if not asignacion:
-        return jsonify({'error': 'No encontrado'}), 404
-    
-    data = request.json
-    asignacion.personal_id = data.get('personal_id', asignacion.personal_id)
-    asignacion.obra_id = data.get('obra_id', asignacion.obra_id)
-    asignacion.puesto = data.get('puesto', asignacion.puesto)
-    asignacion.frente = data.get('frente', asignacion.frente)
-    asignacion.fecha_asignacion = data.get('fecha_asignacion', asignacion.fecha_asignacion)
-    asignacion.fecha_fin = data.get('fecha_fin', asignacion.fecha_fin)
-    asignacion.estado = data.get('estado', asignacion.estado)
-    
-    db.session.commit()
-    return jsonify({'mensaje': 'Actualizado'})
+    try:
+        asignacion = Asignacion.query.get(id)
+        if not asignacion:
+            return jsonify({'error': 'No encontrado'}), 404
+
+        data = request.json or {}
+        asignacion.personal_id = data.get('personal_id', asignacion.personal_id)
+        asignacion.obra_id = data.get('obra_id', asignacion.obra_id)
+        asignacion.puesto = data.get('puesto', asignacion.puesto)
+        asignacion.frente = data.get('frente', asignacion.frente)
+        asignacion.fecha_asignacion = data.get('fecha_asignacion', asignacion.fecha_asignacion)
+        asignacion.fecha_fin = data.get('fecha_fin', asignacion.fecha_fin)
+        asignacion.estado = data.get('estado', asignacion.estado)
+
+        if not asignacion.personal_id or not asignacion.obra_id or not asignacion.fecha_asignacion:
+            return jsonify({'error': 'personal_id, obra_id y fecha_asignacion son requeridos'}), 400
+
+        db.session.commit()
+        return jsonify({'mensaje': 'Actualizado'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'No se pudo actualizar la asignación: {str(e)}'}), 500
 
 @asignaciones_bp.route('/<int:id>', methods=['DELETE'])
 @admin_required
