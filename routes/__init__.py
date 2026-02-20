@@ -54,6 +54,29 @@ def calcular_horas_trabajadas(hora_ingreso, hora_egreso):
 
     return round((fin - inicio).total_seconds() / 3600, 2)
 
+def actualizar_estados_obras_por_fecha():
+    """Actualiza automáticamente el estado de obras según la fecha de fin estimada."""
+    hoy = datetime.now().date()
+    cambios = False
+
+    for obra in Obra.query.all():
+        estado_actual = obra.estado or 'activa'
+        nuevo_estado = estado_actual
+
+        if obra.fecha_fin_estimada:
+            try:
+                fecha_fin = datetime.strptime(obra.fecha_fin_estimada, '%Y-%m-%d').date()
+                nuevo_estado = 'desactiva' if hoy > fecha_fin else 'activa'
+            except ValueError:
+                continue
+
+        if nuevo_estado != estado_actual:
+            obra.estado = nuevo_estado
+            cambios = True
+
+    if cambios:
+        db.session.commit()
+
 def asignacion_activa_en_fecha(asignacion, fecha):
     """Retorna True si la asignación está activa en la fecha indicada (YYYY-MM-DD)."""
     if not asignacion or not fecha:
@@ -165,6 +188,7 @@ def crear_personal():
             ciudad=data.get('ciudad'),
             provincia=data.get('provincia'),
             codigo_postal=data.get('codigo_postal'),
+            lugar_trabajo=data.get('lugar_trabajo', 'obra'),
             fecha_ingreso=data.get('fecha_ingreso', '')
         )
         db.session.add(nuevo)
@@ -200,6 +224,7 @@ def actualizar_personal(id):
     personal.ciudad = data.get('ciudad', personal.ciudad)
     personal.provincia = data.get('provincia', personal.provincia)
     personal.codigo_postal = data.get('codigo_postal', personal.codigo_postal)
+    personal.lugar_trabajo = data.get('lugar_trabajo', personal.lugar_trabajo)
     personal.fecha_ingreso = data.get('fecha_ingreso', personal.fecha_ingreso)
     personal.estado = data.get('estado', personal.estado)
     
@@ -223,6 +248,7 @@ obras_bp = Blueprint('obras', __name__, url_prefix='/api/obras')
 @obras_bp.route('', methods=['GET'])
 @obra_or_admin_required
 def get_obras():
+    actualizar_estados_obras_por_fecha()
     obras = Obra.query.all()
     return jsonify([o.to_dict() for o in obras])
 
@@ -245,6 +271,7 @@ def crear_obra():
 @obras_bp.route('/<int:id>', methods=['GET'])
 @obra_or_admin_required
 def get_obra_id(id):
+    actualizar_estados_obras_por_fecha()
     obra = Obra.query.get(id)
     if not obra:
         return jsonify({'error': 'No encontrado'}), 404

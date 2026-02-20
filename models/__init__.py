@@ -16,6 +16,7 @@ class Personal(db.Model):
     provincia = db.Column(db.String(100))
     codigo_postal = db.Column(db.String(10))
     estado = db.Column(db.String(20), default='activo')
+    lugar_trabajo = db.Column(db.String(20), default='obra')
     fecha_ingreso = db.Column(db.String(10), nullable=True)
     fecha_creacion = db.Column(db.DateTime, default=datetime.now)
     
@@ -33,6 +34,7 @@ class Personal(db.Model):
             'provincia': self.provincia,
             'codigo_postal': self.codigo_postal,
             'estado': self.estado,
+            'lugar_trabajo': self.lugar_trabajo,
             'fecha_ingreso': self.fecha_ingreso
         }
 
@@ -86,6 +88,7 @@ class Asignacion(db.Model):
             'obra_id': self.obra_id,
             'personal_nombre': self.personal.nombre,
             'personal_apellido': self.personal.apellido,
+            'personal_lugar_trabajo': self.personal.lugar_trabajo,
             'obra_nombre': self.obra.nombre,
             'fecha_asignacion': self.fecha_asignacion,
             'fecha_fin': self.fecha_fin,

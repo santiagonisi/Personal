@@ -24,13 +24,14 @@
                     <th>DNI</th>
                     <th>Email</th>
                     <th>Teléfono</th>
+                    <th>Lugar</th>
                     <th>Fecha Ingreso</th>
                     <th>Estado</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
             <tbody id="personal-table">
-                <tr><td colspan="9" style="text-align: center;">Cargando...</td></tr>
+                <tr><td colspan="10" style="text-align: center;">Cargando...</td></tr>
             </tbody>
         </table>
     </div>
@@ -65,28 +66,16 @@
                 <input type="tel" id="telefono">
             </div>
             <div class="form-group">
-                <label>Fecha de Nacimiento</label>
-                <input type="date" id="fecha_nacimiento">
-            </div>
-            <div class="form-group">
-                <label>Domicilio</label>
-                <input type="text" id="domicilio">
-            </div>
-            <div class="form-group">
-                <label>Ciudad</label>
-                <input type="text" id="ciudad">
-            </div>
-            <div class="form-group">
-                <label>Provincia</label>
-                <input type="text" id="provincia">
-            </div>
-            <div class="form-group">
-                <label>Código Postal</label>
-                <input type="text" id="codigo_postal">
-            </div>
-            <div class="form-group">
                 <label>Fecha de Ingreso *</label>
                 <input type="date" id="fecha_ingreso" required>
+            </div>
+            <div class="form-group">
+                <label>Lugar de Trabajo *</label>
+                <select id="lugar_trabajo" required>
+                    <option value="obra">Obra</option>
+                    <option value="oficina">Oficina</option>
+                    <option value="planta">Planta</option>
+                </select>
             </div>
             <div class="btn-group">
                 <button type="submit" class="btn btn-success">Guardar</button>
@@ -121,12 +110,8 @@ async function savePersonal(event) {
         dni: document.getElementById('dni').value,
         email: document.getElementById('email').value,
         telefono: document.getElementById('telefono').value,
-        fecha_nacimiento: document.getElementById('fecha_nacimiento').value,
-        domicilio: document.getElementById('domicilio').value,
-        ciudad: document.getElementById('ciudad').value,
-        provincia: document.getElementById('provincia').value,
-        codigo_postal: document.getElementById('codigo_postal').value,
-        fecha_ingreso: document.getElementById('fecha_ingreso').value
+        fecha_ingreso: document.getElementById('fecha_ingreso').value,
+        lugar_trabajo: document.getElementById('lugar_trabajo').value
     };
 
     try {
@@ -171,6 +156,7 @@ async function loadPersonal() {
                 <td>${p.dni || '-'}</td>
                 <td>${p.email || '-'}</td>
                 <td>${p.telefono || '-'}</td>
+                <td>${formatLugarTrabajo(p.lugar_trabajo)}</td>
                 <td>${formatDate(p.fecha_ingreso)}</td>
                 <td>${p.estado || 'Activo'}</td>
                 <td>
@@ -200,12 +186,8 @@ async function editPersonal(id) {
         document.getElementById('dni').value = personal.dni || '';
         document.getElementById('email').value = personal.email || '';
         document.getElementById('telefono').value = personal.telefono || '';
-        document.getElementById('fecha_nacimiento').value = personal.fecha_nacimiento || '';
-        document.getElementById('domicilio').value = personal.domicilio || '';
-        document.getElementById('ciudad').value = personal.ciudad || '';
-        document.getElementById('provincia').value = personal.provincia || '';
-        document.getElementById('codigo_postal').value = personal.codigo_postal || '';
         document.getElementById('fecha_ingreso').value = personal.fecha_ingreso || '';
+        document.getElementById('lugar_trabajo').value = personal.lugar_trabajo || 'obra';
         
         document.getElementById('modal-title').textContent = 'Editar Empleado';
         document.getElementById('personal-modal').classList.add('active');
@@ -226,6 +208,12 @@ async function deletePersonal(id) {
             console.error('Error:', error);
         }
     }
+}
+
+function formatLugarTrabajo(lugar) {
+    if (!lugar) return 'Obra';
+    const valor = String(lugar).toLowerCase();
+    return valor.charAt(0).toUpperCase() + valor.slice(1);
 }
 
 document.addEventListener('DOMContentLoaded', loadPersonal);

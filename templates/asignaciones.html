@@ -20,7 +20,7 @@
                 <tr>
                     <th>ID</th>
                     <th>Personal</th>
-                    <th>Obra</th>
+                    <th>Lugar Físico</th>
                     <th>Puesto</th>
                     <th>Fecha Asignación</th>
                     <th>Estado</th>
@@ -28,7 +28,7 @@
                 </tr>
             </thead>
             <tbody id="asignaciones-table">
-                <tr><td colspan="8" style="text-align: center;">Cargando...</td></tr>
+                <tr><td colspan="7" style="text-align: center;">Cargando...</td></tr>
             </tbody>
         </table>
     </div>
@@ -47,6 +47,10 @@
                 <select id="personal_id" required></select>
             </div>
             <div class="form-group">
+                <label>Lugar Físico</label>
+                <input type="text" id="lugar_fisico" readonly placeholder="Seleccione empleado">
+            </div>
+            <div class="form-group" id="obra-group">
                 <label>Obra *</label>
                 <select id="obra_id" required></select>
             </div>
@@ -72,6 +76,33 @@
 
 <script>
 let editingId = null;
+let personalMap = {};
+
+function capitalize(texto) {
+    if (!texto) return '';
+    const valor = String(texto).toLowerCase();
+    return valor.charAt(0).toUpperCase() + valor.slice(1);
+}
+
+function updateLugarYObraUI() {
+    const personalId = document.getElementById('personal_id').value;
+    const lugarInput = document.getElementById('lugar_fisico');
+    const obraGroup = document.getElementById('obra-group');
+    const obraSelect = document.getElementById('obra_id');
+
+    const persona = personalMap[personalId];
+    const lugar = persona?.lugar_trabajo || '';
+    lugarInput.value = capitalize(lugar);
+
+    if (lugar === 'obra') {
+        obraGroup.style.display = '';
+        obraSelect.required = true;
+    } else {
+        obraSelect.value = '';
+        obraSelect.required = false;
+        obraGroup.style.display = 'none';
+    }
+}
 
 async function loadSelects() {
     try {
@@ -79,7 +110,9 @@ async function loadSelects() {
         const personal = await personalRes.json();
         const personalSelect = document.getElementById('personal_id');
         personalSelect.innerHTML = '<option value="">-- Seleccione empleado --</option>';
+        personalMap = {};
         personal.forEach(p => {
+            personalMap[p.id] = p;
             const option = document.createElement('option');
             option.value = p.id;
             option.textContent = `${p.nombre} ${p.apellido}`;
@@ -96,6 +129,8 @@ async function loadSelects() {
             option.textContent = o.nombre;
             obraSelect.appendChild(option);
         });
+
+        updateLugarYObraUI();
     } catch (error) {
         console.error('Error cargando selects:', error);
     }
@@ -105,9 +140,9 @@ function openAsignacionForm() {
     editingId = null;
     document.getElementById('asignacion-id').value = '';
     document.getElementById('modal-title').textContent = 'Nueva Asignación';
+    document.getElementById('asignacion-form').reset();
     loadSelects();
     document.getElementById('asignacion-modal').classList.add('active');
-    document.getElementById('asignacion-form').reset();
 }
 
 function closeAsignacionForm() {
@@ -125,6 +160,11 @@ async function saveAsignacion(event) {
         fecha_asignacion: document.getElementById('fecha_asignacion').value,
         fecha_fin: document.getElementById('fecha_fin').value
     };
+
+    if (!data.obra_id) {
+        showNotification('Para asignar, el empleado debe tener lugar físico en obra y seleccionar una obra', 'error');
+        return;
+    }
 
     try {
         const id = document.getElementById('asignacion-id').value;
@@ -164,7 +204,7 @@ async function loadAsignaciones() {
             row.innerHTML = `
                 <td>${a.id}</td>
                 <td>${a.personal_nombre} ${a.personal_apellido}</td>
-                <td>${a.obra_nombre}</td>
+                <td>${formatLugarTrabajo(a.personal_lugar_trabajo)}</td>
                 <td>${a.puesto || '-'}</td>
                 <td>${formatDate(a.fecha_asignacion)}</td>
                 <td>${a.estado || 'Activa'}</td>
@@ -201,6 +241,7 @@ async function editAsignacion(id) {
         document.getElementById('puesto').value = asignacion.puesto || '';
         document.getElementById('fecha_asignacion').value = asignacion.fecha_asignacion || '';
         document.getElementById('fecha_fin').value = asignacion.fecha_fin || '';
+        updateLugarYObraUI();
         
         document.getElementById('modal-title').textContent = 'Editar Asignación';
         document.getElementById('asignacion-modal').classList.add('active');
@@ -223,6 +264,16 @@ async function deleteAsignacion(id) {
     }
 }
 
-document.addEventListener('DOMContentLoaded', loadAsignaciones);
+function formatLugarTrabajo(lugar) {
+    if (!lugar) return 'Obra';
+    const valor = String(lugar).toLowerCase();
+    return valor.charAt(0).toUpperCase() + valor.slice(1);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const personalSelect = document.getElementById('personal_id');
+    personalSelect.addEventListener('change', updateLugarYObraUI);
+    loadAsignaciones();
+});
 </script>
 {% endblock %}
