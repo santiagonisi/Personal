@@ -210,13 +210,29 @@ def actualizar_personal(id):
 @personal_bp.route('/<int:id>', methods=['DELETE'])
 @admin_required
 def eliminar_personal(id):
-    personal = Personal.query.get(id)
-    if not personal:
-        return jsonify({'error': 'No encontrado'}), 404
-    
-    db.session.delete(personal)
-    db.session.commit()
-    return jsonify({'mensaje': 'Eliminado'})
+    try:
+        personal = Personal.query.get(id)
+        if not personal:
+            return jsonify({'error': 'No encontrado'}), 404
+
+        asignaciones_count = Asignacion.query.filter_by(personal_id=id).count()
+        presentismo_count = Presentismo.query.filter_by(personal_id=id).count()
+        ingresos_count = IngresoEgreso.query.filter_by(personal_id=id).count()
+
+        if asignaciones_count or presentismo_count or ingresos_count:
+            return jsonify({
+                'error': (
+                    'No se puede eliminar el empleado porque tiene datos asociados '
+                    f'(asignaciones: {asignaciones_count}, presentismo: {presentismo_count}, ingresos/egresos: {ingresos_count}).'
+                )
+            }), 400
+
+        db.session.delete(personal)
+        db.session.commit()
+        return jsonify({'mensaje': 'Eliminado'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'No se pudo eliminar el empleado: {str(e)}'}), 500
 
 
 obras_bp = Blueprint('obras', __name__, url_prefix='/api/obras')

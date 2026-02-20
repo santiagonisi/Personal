@@ -117,18 +117,10 @@ async function savePersonal(event) {
     try {
         const id = document.getElementById('personal-id').value;
         if (id) {
-            // Editar
-            const response = await fetch(`/api/personal/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            if (response.ok) {
-                showNotification('Empleado actualizado exitosamente');
-            }
+            await apiCall(`/api/personal/${id}`, 'PUT', data);
+            showNotification('Empleado actualizado exitosamente');
         } else {
-            // Crear
-            const result = await apiCall('/api/personal', 'POST', data);
+            await apiCall('/api/personal', 'POST', data);
             showNotification('Empleado creado exitosamente');
         }
         closePersonalForm();
@@ -141,11 +133,15 @@ async function savePersonal(event) {
 
 async function loadPersonal() {
     try {
-        const response = await fetch('/api/personal');
-        const personal = await response.json();
+        const personal = await apiCall('/api/personal');
         
         const table = document.getElementById('personal-table');
         table.innerHTML = '';
+
+        if (!personal || personal.length === 0) {
+            table.innerHTML = '<tr><td colspan="10" style="text-align: center;">No hay empleados registrados</td></tr>';
+            return;
+        }
         
         personal.forEach(p => {
             const row = document.createElement('tr');
@@ -177,8 +173,7 @@ async function loadPersonal() {
 
 async function editPersonal(id) {
     try {
-        const response = await fetch(`/api/personal/${id}`);
-        const personal = await response.json();
+        const personal = await apiCall(`/api/personal/${id}`);
         
         document.getElementById('personal-id').value = personal.id;
         document.getElementById('nombre').value = personal.nombre;
@@ -201,7 +196,7 @@ async function editPersonal(id) {
 async function deletePersonal(id) {
     if (confirm('¿Desea eliminar este empleado?')) {
         try {
-            await fetch(`/api/personal/${id}`, { method: 'DELETE' });
+            await apiCall(`/api/personal/${id}`, 'DELETE');
             showNotification('Empleado eliminado');
             loadPersonal();
         } catch (error) {
