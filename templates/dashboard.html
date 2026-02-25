@@ -3,12 +3,10 @@
 {% block title %}Dashboard - Control de Nómina en Obra{% endblock %}
 
 {% block content %}
-<!-- Logo -->
 <div class="dashboard-logo">
   <img src="{{ url_for('static', filename='images/isologo IARSA.png') }}" alt="Logo IARSA" class="dashboard-logo-img">
 </div>
 
-<!-- Cards de Navegación -->
 <section class="dashboard">
   {% if current_user.es_admin() %}
   <a href="/personal" class="card-link">
@@ -47,7 +45,6 @@
   {% endif %}
 </section>
 
-<!-- Acciones Rápidas Centradas -->
 <div class="quick-actions">
   <h2 class="quick-actions-title">Acciones Rápidas</h2>
   <div class="action-buttons">

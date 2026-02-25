@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Script para crear el primer usuario administrador
 Uso: python create_admin.py
