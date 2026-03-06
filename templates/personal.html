@@ -19,6 +19,7 @@
             <thead>
                 <tr>
                     <th>ID</th>
+                    <th>Legajo</th>
                     <th>Nombre</th>
                     <th>Apellido</th>
                     <th>DNI</th>
@@ -31,7 +32,7 @@
                 </tr>
             </thead>
             <tbody id="personal-table">
-                <tr><td colspan="10" style="text-align: center;">Cargando...</td></tr>
+                <tr><td colspan="11" style="text-align: center;">Cargando...</td></tr>
             </tbody>
         </table>
     </div>
@@ -45,6 +46,10 @@
         </div>
         <form id="personal-form" onsubmit="savePersonal(event)">
             <input type="hidden" id="personal-id">
+            <div class="form-group">
+                <label>Legajo</label>
+                <input type="text" id="legajo" maxlength="30">
+            </div>
             <div class="form-group">
                 <label>Nombre *</label>
                 <input type="text" id="nombre" required>
@@ -105,6 +110,7 @@ async function savePersonal(event) {
     event.preventDefault();
     
     const data = {
+        legajo: document.getElementById('legajo').value,
         nombre: document.getElementById('nombre').value,
         apellido: document.getElementById('apellido').value,
         dni: document.getElementById('dni').value,
@@ -139,7 +145,7 @@ async function loadPersonal() {
         table.innerHTML = '';
 
         if (!personal || personal.length === 0) {
-            table.innerHTML = '<tr><td colspan="10" style="text-align: center;">No hay empleados registrados</td></tr>';
+            table.innerHTML = '<tr><td colspan="11" style="text-align: center;">No hay empleados registrados</td></tr>';
             return;
         }
         
@@ -147,6 +153,7 @@ async function loadPersonal() {
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${p.id}</td>
+                <td>${p.legajo || '-'}</td>
                 <td>${p.nombre}</td>
                 <td>${p.apellido}</td>
                 <td>${p.dni || '-'}</td>
@@ -176,6 +183,7 @@ async function editPersonal(id) {
         const personal = await apiCall(`/api/personal/${id}`);
         
         document.getElementById('personal-id').value = personal.id;
+        document.getElementById('legajo').value = personal.legajo || '';
         document.getElementById('nombre').value = personal.nombre;
         document.getElementById('apellido').value = personal.apellido;
         document.getElementById('dni').value = personal.dni || '';

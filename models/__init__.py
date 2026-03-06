@@ -5,6 +5,7 @@ class Personal(db.Model):
     __tablename__ = 'personal'
     
     id = db.Column(db.Integer, primary_key=True)
+    legajo = db.Column(db.String(30), unique=True)
     nombre = db.Column(db.String(100), nullable=False)
     apellido = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(100))
@@ -18,6 +19,7 @@ class Personal(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
+            'legajo': self.legajo,
             'nombre': self.nombre,
             'apellido': self.apellido,
             'email': self.email,

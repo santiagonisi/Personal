@@ -20,6 +20,14 @@ def ensure_personal_lugar_trabajo_column():
         )
         db.session.commit()
 
+def ensure_personal_legajo_column():
+    columnas = db.session.execute(text("PRAGMA table_info(personal)")).fetchall()
+    nombres_columnas = {columna[1] for columna in columnas}
+
+    if 'legajo' not in nombres_columnas:
+        db.session.execute(text("ALTER TABLE personal ADD COLUMN legajo VARCHAR(30)"))
+        db.session.commit()
+
 def cleanup_personal_legacy_columns():
     columnas = db.session.execute(text("PRAGMA table_info(personal)")).fetchall()
     nombres_columnas = {columna[1] for columna in columnas}
@@ -100,6 +108,7 @@ def create_app():
         db.create_all()
         ensure_personal_lugar_trabajo_column()
         cleanup_personal_legacy_columns()
+        ensure_personal_legajo_column()
         ensure_asignaciones_frente_column()
         
         # Cargar usuario por ID para Flask-Login

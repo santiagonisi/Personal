@@ -153,8 +153,11 @@ def crear_personal():
         lugar_trabajo = data.get('lugar_trabajo', 'obra')
         if lugar_trabajo not in ['oficina', 'obra', 'planta']:
             return jsonify({'error': 'lugar_trabajo debe ser oficina, obra o planta'}), 400
+
+        legajo = (data.get('legajo') or '').strip() or None
         
         nuevo = Personal(
+            legajo=legajo,
             nombre=data['nombre'],
             apellido=data['apellido'],
             email=data.get('email'),
@@ -192,6 +195,8 @@ def actualizar_personal(id):
 
         personal.nombre = data.get('nombre', personal.nombre)
         personal.apellido = data.get('apellido', personal.apellido)
+        if 'legajo' in data:
+            personal.legajo = (data.get('legajo') or '').strip() or None
         personal.email = data.get('email', personal.email)
         personal.telefono = data.get('telefono', personal.telefono)
         personal.dni = data.get('dni', personal.dni)
