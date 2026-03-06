@@ -16,7 +16,9 @@
       <p>Total: {{ total_personal }}</p>
     </div>
   </a>
+  {% endif %}
 
+  {% if current_user.es_admin() or current_user.es_en_obra() %}
   <a href="/obras" class="card-link">
     <div class="card">
       <div class="icon">🏗️</div>
@@ -25,14 +27,6 @@
     </div>
   </a>
   {% endif %}
-
-  <a href="/asignaciones" class="card-link">
-    <div class="card">
-      <div class="icon">📌</div>
-      <h2>Asignaciones</h2>
-      <p>Total: {{ total_asignaciones }}</p>
-    </div>
-  </a>
 
   {% if current_user.is_authenticated and current_user.es_admin() %}
   <a href="/admin/usuarios" class="card-link">
@@ -52,7 +46,6 @@
         <a href="/personal" class="btn btn-primary">+ Nuevo Empleado</a>
         <a href="/obras" class="btn btn-primary">+ Nueva Obra</a>
       {% endif %}
-        <a href="/asignaciones" class="btn btn-primary">+ Nueva Asignación</a>
         <a href="/parte-diario" class="btn btn-secondary">Parte Diario por Obra</a>
       {% if current_user.es_admin() %}
       <a href="/historico-obreros" class="btn btn-secondary">Archivo Histórico</a>

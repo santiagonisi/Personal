@@ -90,11 +90,9 @@ def index():
 def dashboard():
     total_personal = Personal.query.count()
     total_obras = Obra.query.count()
-    total_asignaciones = Asignacion.query.count()
     return render_template('dashboard.html', 
                          total_personal=total_personal,
-                         total_obras=total_obras,
-                         total_asignaciones=total_asignaciones)
+                         total_obras=total_obras)
 
 @main_bp.route('/personal')
 @login_required
@@ -106,14 +104,14 @@ def personal_page():
 @main_bp.route('/obras')
 @login_required
 def obras_page():
-    if not current_user.es_admin():
+    if not (current_user.es_admin() or current_user.es_en_obra()):
         return redirect(url_for('main.dashboard'))
     return render_template('obras.html')
 
 @main_bp.route('/asignaciones')
 @login_required
 def asignaciones_page():
-    return render_template('asignaciones.html')
+    return redirect(url_for('main.dashboard'))
 
 @main_bp.route('/parte-diario')
 @login_required
