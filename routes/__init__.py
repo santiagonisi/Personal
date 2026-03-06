@@ -218,15 +218,14 @@ def eliminar_personal(id):
         if not personal:
             return jsonify({'error': 'No encontrado'}), 404
 
-        asignaciones_count = Asignacion.query.filter_by(personal_id=id).count()
         presentismo_count = Presentismo.query.filter_by(personal_id=id).count()
         ingresos_count = IngresoEgreso.query.filter_by(personal_id=id).count()
 
-        if asignaciones_count or presentismo_count or ingresos_count:
+        if presentismo_count or ingresos_count:
             return jsonify({
                 'error': (
                     'No se puede eliminar el empleado porque tiene datos asociados '
-                    f'(asignaciones: {asignaciones_count}, presentismo: {presentismo_count}, ingresos/egresos: {ingresos_count}).'
+                    f'(presentismo: {presentismo_count}, ingresos/egresos: {ingresos_count}).'
                 )
             }), 400
 
@@ -308,76 +307,27 @@ asignaciones_bp = Blueprint('asignaciones', __name__, url_prefix='/api/asignacio
 @asignaciones_bp.route('', methods=['GET'])
 @obra_or_admin_required
 def get_asignaciones():
-    asignaciones = Asignacion.query.order_by(Asignacion.fecha_asignacion.desc(), Asignacion.id.desc()).all()
-    return jsonify([a.to_dict() for a in asignaciones])
+    return jsonify({'error': 'Modulo de asignaciones descontinuado. Usar Parte Diario.'}), 410
 
 @asignaciones_bp.route('', methods=['POST'])
 @obra_or_admin_required
 def crear_asignacion():
-    try:
-        data = request.json or {}
-
-        if not data.get('personal_id') or not data.get('obra_id') or not data.get('fecha_asignacion'):
-            return jsonify({'error': 'personal_id, obra_id y fecha_asignacion son requeridos'}), 400
-
-        nueva = Asignacion(
-            personal_id=data['personal_id'],
-            obra_id=data['obra_id'],
-            fecha_asignacion=data['fecha_asignacion'],
-            puesto=data.get('puesto'),
-            frente=data.get('frente')
-        )
-        db.session.add(nueva)
-        db.session.commit()
-        return jsonify({'id': nueva.id, 'mensaje': 'Asignación creada'}), 201
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': f'No se pudo crear la asignación: {str(e)}'}), 500
+    return jsonify({'error': 'Modulo de asignaciones descontinuado. Usar Parte Diario.'}), 410
 
 @asignaciones_bp.route('/<int:id>', methods=['GET'])
 @obra_or_admin_required
 def get_asignacion_id(id):
-    asignacion = Asignacion.query.get(id)
-    if not asignacion:
-        return jsonify({'error': 'No encontrado'}), 404
-    return jsonify(asignacion.to_dict())
+    return jsonify({'error': 'Modulo de asignaciones descontinuado. Usar Parte Diario.'}), 410
 
 @asignaciones_bp.route('/<int:id>', methods=['PUT'])
 @obra_or_admin_required
 def actualizar_asignacion(id):
-    try:
-        asignacion = Asignacion.query.get(id)
-        if not asignacion:
-            return jsonify({'error': 'No encontrado'}), 404
-
-        data = request.json or {}
-        asignacion.personal_id = data.get('personal_id', asignacion.personal_id)
-        asignacion.obra_id = data.get('obra_id', asignacion.obra_id)
-        asignacion.puesto = data.get('puesto', asignacion.puesto)
-        asignacion.frente = data.get('frente', asignacion.frente)
-        asignacion.fecha_asignacion = data.get('fecha_asignacion', asignacion.fecha_asignacion)
-        asignacion.fecha_fin = data.get('fecha_fin', asignacion.fecha_fin)
-        asignacion.estado = data.get('estado', asignacion.estado)
-
-        if not asignacion.personal_id or not asignacion.obra_id or not asignacion.fecha_asignacion:
-            return jsonify({'error': 'personal_id, obra_id y fecha_asignacion son requeridos'}), 400
-
-        db.session.commit()
-        return jsonify({'mensaje': 'Actualizado'})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': f'No se pudo actualizar la asignación: {str(e)}'}), 500
+    return jsonify({'error': 'Modulo de asignaciones descontinuado. Usar Parte Diario.'}), 410
 
 @asignaciones_bp.route('/<int:id>', methods=['DELETE'])
 @admin_required
 def eliminar_asignacion(id):
-    asignacion = Asignacion.query.get(id)
-    if not asignacion:
-        return jsonify({'error': 'No encontrado'}), 404
-    
-    db.session.delete(asignacion)
-    db.session.commit()
-    return jsonify({'mensaje': 'Eliminado'})
+    return jsonify({'error': 'Modulo de asignaciones descontinuado. Usar Parte Diario.'}), 410
 
 
 @main_bp.route('/api/parte-diario', methods=['GET'])
@@ -390,11 +340,9 @@ def get_parte_diario():
         return jsonify({'error': 'obra_id es requerido'}), 400
 
     personal_obra = Personal.query.filter_by(lugar_trabajo='obra').order_by(Personal.apellido.asc(), Personal.nombre.asc()).all()
-    asignaciones = Asignacion.query.filter_by(obra_id=obra_id, estado='activa').all()
     presentismos = Presentismo.query.filter_by(obra_id=obra_id, fecha=fecha).all()
     ingresos_egresos = IngresoEgreso.query.filter_by(obra_id=obra_id, fecha=fecha).all()
 
-    puesto_por_personal = {a.personal_id: a.puesto for a in asignaciones}
     presentismo_por_personal = {p.personal_id: p for p in presentismos}
     ingreso_por_personal = {i.personal_id: i for i in ingresos_egresos}
 
@@ -409,7 +357,7 @@ def get_parte_diario():
             'nombre': persona.nombre,
             'apellido': persona.apellido,
             'dni': persona.dni,
-            'puesto': puesto_por_personal.get(persona.id),
+            'puesto': None,
             'presentismo_id': presentismo.id if presentismo else None,
             'tipo': tipo,
             'en_obra': tipo == 'presente',
@@ -491,6 +439,26 @@ def guardar_parte_diario():
         )
         db.session.add(ingreso_egreso)
 
+    # Mantener compatibilidad histórica: sincroniza una asignación interna
+    # cuando el obrero figura presente en la obra.
+    if tipo == 'presente':
+        asignacion = Asignacion.query.filter_by(
+            personal_id=personal_id,
+            obra_id=obra_id
+        ).order_by(Asignacion.fecha_asignacion.asc(), Asignacion.id.asc()).first()
+
+        if asignacion:
+            if not asignacion.fecha_asignacion:
+                asignacion.fecha_asignacion = fecha
+            asignacion.estado = 'activa'
+        else:
+            db.session.add(Asignacion(
+                personal_id=personal_id,
+                obra_id=obra_id,
+                fecha_asignacion=fecha,
+                estado='activa'
+            ))
+
     db.session.commit()
     return jsonify({'mensaje': 'Parte diario guardado correctamente'})
 
@@ -502,24 +470,42 @@ def get_historico_obreros():
     historico = []
 
     for obrero in personal_list:
-        asignaciones = Asignacion.query.filter_by(personal_id=obrero.id).order_by(Asignacion.fecha_asignacion.desc(), Asignacion.id.desc()).all()
         presentismos = Presentismo.query.filter_by(personal_id=obrero.id).all()
         ingresos = IngresoEgreso.query.filter_by(personal_id=obrero.id).all()
 
-        obras = []
-        obras_set = set()
-        for asignacion in asignaciones:
-            if asignacion.obra_id in obras_set:
+        obras_por_id = {}
+
+        for p in presentismos:
+            if not p.obra_id:
                 continue
-            obras_set.add(asignacion.obra_id)
+            entry = obras_por_id.setdefault(p.obra_id, {'fechas': set()})
+            if p.fecha:
+                entry['fechas'].add(p.fecha)
+
+        for ing in ingresos:
+            if not ing.obra_id:
+                continue
+            entry = obras_por_id.setdefault(ing.obra_id, {'fechas': set()})
+            if ing.fecha:
+                entry['fechas'].add(ing.fecha)
+
+        obras = []
+        for obra_id, data_obra in obras_por_id.items():
+            obra = Obra.query.get(obra_id)
+            fechas = sorted([f for f in data_obra.get('fechas', set()) if f])
+            fecha_desde = fechas[0] if fechas else ''
+            fecha_hasta = fechas[-1] if len(fechas) > 1 else ''
+
             obras.append({
-                'obra_id': asignacion.obra_id,
-                'obra_nombre': asignacion.obra.nombre if asignacion.obra else 'Sin obra',
-                'fecha_asignacion': asignacion.fecha_asignacion,
-                'fecha_fin': asignacion.fecha_fin,
-                'puesto': asignacion.puesto,
-                'frente': asignacion.frente
+                'obra_id': obra_id,
+                'obra_nombre': obra.nombre if obra else 'Sin obra',
+                'fecha_asignacion': fecha_desde,
+                'fecha_fin': fecha_hasta,
+                'puesto': None,
+                'frente': obra.responsable if obra else None
             })
+
+        obras.sort(key=lambda x: x.get('fecha_asignacion') or '', reverse=True)
 
         total_horas = round(sum((ing.horas_trabajadas or 0) for ing in ingresos), 2)
         dias_trabajados = len({ing.fecha for ing in ingresos if ing.fecha})
