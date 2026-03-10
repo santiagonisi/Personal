@@ -1,6 +1,6 @@
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for, make_response
 from flask_login import login_required, current_user
-from models import Personal, Obra, Asignacion, Presentismo, IngresoEgreso
+from models import Personal, Obra, Presentismo, IngresoEgreso
 from app import db
 from functools import wraps
 from datetime import datetime, timedelta
@@ -108,11 +108,6 @@ def obras_page():
         return redirect(url_for('main.dashboard'))
     return render_template('obras.html')
 
-@main_bp.route('/asignaciones')
-@login_required
-def asignaciones_page():
-    return redirect(url_for('main.dashboard'))
-
 @main_bp.route('/parte-diario')
 @login_required
 def parte_diario_page():
@@ -126,6 +121,13 @@ def historico_obreros_page():
     if not current_user.es_admin():
         return redirect(url_for('main.dashboard'))
     return render_template('historico_obreros.html')
+
+@main_bp.route('/viaticos')
+@login_required
+def viaticos_page():
+    if not current_user.es_admin():
+        return redirect(url_for('main.dashboard'))
+    return render_template('viaticos.html')
 
 
 personal_bp = Blueprint('personal', __name__, url_prefix='/api/personal')
@@ -302,34 +304,6 @@ def eliminar_obra(id):
     return jsonify({'mensaje': 'Eliminado'})
 
 
-asignaciones_bp = Blueprint('asignaciones', __name__, url_prefix='/api/asignaciones')
-
-@asignaciones_bp.route('', methods=['GET'])
-@obra_or_admin_required
-def get_asignaciones():
-    return jsonify({'error': 'Modulo de asignaciones descontinuado. Usar Parte Diario.'}), 410
-
-@asignaciones_bp.route('', methods=['POST'])
-@obra_or_admin_required
-def crear_asignacion():
-    return jsonify({'error': 'Modulo de asignaciones descontinuado. Usar Parte Diario.'}), 410
-
-@asignaciones_bp.route('/<int:id>', methods=['GET'])
-@obra_or_admin_required
-def get_asignacion_id(id):
-    return jsonify({'error': 'Modulo de asignaciones descontinuado. Usar Parte Diario.'}), 410
-
-@asignaciones_bp.route('/<int:id>', methods=['PUT'])
-@obra_or_admin_required
-def actualizar_asignacion(id):
-    return jsonify({'error': 'Modulo de asignaciones descontinuado. Usar Parte Diario.'}), 410
-
-@asignaciones_bp.route('/<int:id>', methods=['DELETE'])
-@admin_required
-def eliminar_asignacion(id):
-    return jsonify({'error': 'Modulo de asignaciones descontinuado. Usar Parte Diario.'}), 410
-
-
 @main_bp.route('/api/parte-diario', methods=['GET'])
 @obra_or_admin_required
 def get_parte_diario():
@@ -361,6 +335,8 @@ def get_parte_diario():
             'presentismo_id': presentismo.id if presentismo else None,
             'tipo': tipo,
             'en_obra': tipo == 'presente',
+            'viatico_vivienda': bool(presentismo.viatico_vivienda) if presentismo else False,
+            'viatico_traslado': bool(presentismo.viatico_traslado) if presentismo else False,
             'descripcion': presentismo.descripcion if presentismo else '',
             'ingreso_egreso_id': ingreso.id if ingreso else None,
             'hora_ingreso': ingreso.hora_ingreso if ingreso else '',
@@ -390,6 +366,8 @@ def guardar_parte_diario():
     hora_ingreso = data.get('hora_ingreso')
     hora_egreso = data.get('hora_egreso')
     notas = data.get('notas')
+    viatico_vivienda = bool(data.get('viatico_vivienda', False))
+    viatico_traslado = bool(data.get('viatico_traslado', False))
 
     if not obra_id or not personal_id or not tipo:
         return jsonify({'error': 'obra_id, personal_id y tipo son requeridos'}), 400
@@ -403,12 +381,16 @@ def guardar_parte_diario():
     if presentismo:
         presentismo.tipo = tipo
         presentismo.descripcion = descripcion
+        presentismo.viatico_vivienda = viatico_vivienda
+        presentismo.viatico_traslado = viatico_traslado
     else:
         presentismo = Presentismo(
             personal_id=personal_id,
             obra_id=obra_id,
             fecha=fecha,
             tipo=tipo,
+            viatico_vivienda=viatico_vivienda,
+            viatico_traslado=viatico_traslado,
             descripcion=descripcion,
             notas=''
         )
@@ -438,26 +420,6 @@ def guardar_parte_diario():
             notas=notas
         )
         db.session.add(ingreso_egreso)
-
-    # Mantener compatibilidad histórica: sincroniza una asignación interna
-    # cuando el obrero figura presente en la obra.
-    if tipo == 'presente':
-        asignacion = Asignacion.query.filter_by(
-            personal_id=personal_id,
-            obra_id=obra_id
-        ).order_by(Asignacion.fecha_asignacion.asc(), Asignacion.id.asc()).first()
-
-        if asignacion:
-            if not asignacion.fecha_asignacion:
-                asignacion.fecha_asignacion = fecha
-            asignacion.estado = 'activa'
-        else:
-            db.session.add(Asignacion(
-                personal_id=personal_id,
-                obra_id=obra_id,
-                fecha_asignacion=fecha,
-                estado='activa'
-            ))
 
     db.session.commit()
     return jsonify({'mensaje': 'Parte diario guardado correctamente'})
@@ -545,6 +507,233 @@ def get_historico_obreros():
         })
 
     return jsonify(historico)
+
+
+@main_bp.route('/api/viaticos/resumen', methods=['GET'])
+@admin_required
+def get_viaticos_resumen():
+    fecha_desde = request.args.get('fecha_desde')
+    fecha_hasta = request.args.get('fecha_hasta')
+    nombre = (request.args.get('nombre') or '').strip().lower()
+
+    if not fecha_desde or not fecha_hasta:
+        return jsonify({'error': 'fecha_desde y fecha_hasta son requeridos'}), 400
+
+    if fecha_desde > fecha_hasta:
+        return jsonify({'error': 'fecha_desde no puede ser mayor a fecha_hasta'}), 400
+
+    presentismos_query = Presentismo.query.filter(
+        Presentismo.fecha >= fecha_desde,
+        Presentismo.fecha <= fecha_hasta
+    )
+
+    ingresos_query = IngresoEgreso.query.filter(
+        IngresoEgreso.fecha >= fecha_desde,
+        IngresoEgreso.fecha <= fecha_hasta
+    )
+
+    presentismos = presentismos_query.all()
+    ingresos = ingresos_query.all()
+
+    ingresos_map = {}
+    for ingreso in ingresos:
+        key = (ingreso.personal_id, ingreso.obra_id, ingreso.fecha)
+        ingresos_map[key] = ingreso
+
+    resumen = {}
+    for p in presentismos:
+        key = p.personal_id
+        if key not in resumen:
+            resumen[key] = {
+                'personal_id': p.personal_id,
+                'nombre': p.personal.nombre if p.personal else '',
+                'apellido': p.personal.apellido if p.personal else '',
+                'dias_con_registro': 0,
+                'dias_presente': 0,
+                'dias_viatico_vivienda': 0,
+                'dias_viatico_traslado': 0,
+                'horas_totales': 0,
+                'detalles': []
+            }
+
+        item = resumen[key]
+        item['dias_con_registro'] += 1
+        if p.tipo == 'presente':
+            item['dias_presente'] += 1
+        if p.viatico_vivienda:
+            item['dias_viatico_vivienda'] += 1
+        if p.viatico_traslado:
+            item['dias_viatico_traslado'] += 1
+
+        ingreso = ingresos_map.get((p.personal_id, p.obra_id, p.fecha))
+        horas = ingreso.horas_trabajadas if ingreso and ingreso.horas_trabajadas is not None else 0
+        item['horas_totales'] = round(item['horas_totales'] + horas, 2)
+
+        item['detalles'].append({
+            'fecha': p.fecha,
+            'obra_id': p.obra_id,
+            'obra_nombre': p.obra.nombre if p.obra else 'Sin obra',
+            'tipo': p.tipo,
+            'viatico_vivienda': bool(p.viatico_vivienda),
+            'viatico_traslado': bool(p.viatico_traslado),
+            'horas_trabajadas': horas,
+            'clasificacion_formula': 'pendiente_formula'
+        })
+
+    data = list(resumen.values())
+
+    if nombre:
+        data = [
+            item for item in data
+            if nombre in f"{(item.get('nombre') or '').lower()} {(item.get('apellido') or '').lower()}"
+        ]
+
+    data.sort(key=lambda x: (x.get('apellido') or '', x.get('nombre') or ''))
+
+    return jsonify({
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta,
+        'nombre': nombre,
+        'total_empleados': len(data),
+        'items': data
+    })
+
+
+@main_bp.route('/api/viaticos/resumen.pdf', methods=['GET'])
+@admin_required
+def get_viaticos_resumen_pdf():
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.pdfgen import canvas
+    except ImportError:
+        return jsonify({'error': 'Falta dependencia reportlab para exportar PDF'}), 500
+
+    fecha_desde = request.args.get('fecha_desde')
+    fecha_hasta = request.args.get('fecha_hasta')
+    nombre = (request.args.get('nombre') or '').strip().lower()
+
+    if not fecha_desde or not fecha_hasta:
+        return jsonify({'error': 'fecha_desde y fecha_hasta son requeridos'}), 400
+
+    if fecha_desde > fecha_hasta:
+        return jsonify({'error': 'fecha_desde no puede ser mayor a fecha_hasta'}), 400
+
+    presentismos_query = Presentismo.query.filter(
+        Presentismo.fecha >= fecha_desde,
+        Presentismo.fecha <= fecha_hasta
+    )
+
+    ingresos_query = IngresoEgreso.query.filter(
+        IngresoEgreso.fecha >= fecha_desde,
+        IngresoEgreso.fecha <= fecha_hasta
+    )
+
+    presentismos = presentismos_query.all()
+    ingresos = ingresos_query.all()
+
+    ingresos_map = {}
+    for ingreso in ingresos:
+        key = (ingreso.personal_id, ingreso.obra_id, ingreso.fecha)
+        ingresos_map[key] = ingreso
+
+    resumen = {}
+    for p in presentismos:
+        key = p.personal_id
+        if key not in resumen:
+            resumen[key] = {
+                'personal_id': p.personal_id,
+                'nombre': p.personal.nombre if p.personal else '',
+                'apellido': p.personal.apellido if p.personal else '',
+                'dias_con_registro': 0,
+                'dias_presente': 0,
+                'dias_viatico_vivienda': 0,
+                'dias_viatico_traslado': 0,
+                'horas_totales': 0,
+            }
+
+        item = resumen[key]
+        item['dias_con_registro'] += 1
+        if p.tipo == 'presente':
+            item['dias_presente'] += 1
+        if p.viatico_vivienda:
+            item['dias_viatico_vivienda'] += 1
+        if p.viatico_traslado:
+            item['dias_viatico_traslado'] += 1
+
+        ingreso = ingresos_map.get((p.personal_id, p.obra_id, p.fecha))
+        horas = ingreso.horas_trabajadas if ingreso and ingreso.horas_trabajadas is not None else 0
+        item['horas_totales'] = round(item['horas_totales'] + horas, 2)
+
+    data = list(resumen.values())
+    if nombre:
+        data = [
+            item for item in data
+            if nombre in f"{(item.get('nombre') or '').lower()} {(item.get('apellido') or '').lower()}"
+        ]
+    data.sort(key=lambda x: (x.get('apellido') or '', x.get('nombre') or ''))
+
+    import io
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    y = height - 40
+
+    c.setTitle('Resumen de Viaticos')
+    c.setFont('Helvetica-Bold', 12)
+    c.drawString(40, y, 'Resumen de Viaticos por Empleado')
+    y -= 18
+    c.setFont('Helvetica', 10)
+    c.drawString(40, y, f'Rango: {fecha_desde} a {fecha_hasta}')
+    y -= 14
+    if nombre:
+        c.drawString(40, y, f'Filtro nombre: {nombre}')
+        y -= 14
+    c.drawString(40, y, f'Total empleados: {len(data)}')
+    y -= 20
+
+    c.setFont('Helvetica-Bold', 9)
+    c.drawString(40, y, 'Empleado')
+    c.drawString(200, y, 'Registros')
+    c.drawString(255, y, 'Presentes')
+    c.drawString(310, y, 'Vivienda')
+    c.drawString(365, y, 'Traslado')
+    c.drawString(420, y, 'Horas')
+    y -= 12
+    c.line(40, y, 560, y)
+    y -= 12
+
+    c.setFont('Helvetica', 9)
+    for item in data:
+        if y < 60:
+            c.showPage()
+            y = height - 40
+            c.setFont('Helvetica-Bold', 9)
+            c.drawString(40, y, 'Empleado')
+            c.drawString(200, y, 'Registros')
+            c.drawString(255, y, 'Presentes')
+            c.drawString(310, y, 'Vivienda')
+            c.drawString(365, y, 'Traslado')
+            c.drawString(420, y, 'Horas')
+            y -= 12
+            c.line(40, y, 560, y)
+            y -= 12
+            c.setFont('Helvetica', 9)
+
+        empleado = f"{item.get('apellido', '')}, {item.get('nombre', '')}"[:30]
+        c.drawString(40, y, empleado)
+        c.drawRightString(235, y, str(item.get('dias_con_registro', 0)))
+        c.drawRightString(290, y, str(item.get('dias_presente', 0)))
+        c.drawRightString(345, y, str(item.get('dias_viatico_vivienda', 0)))
+        c.drawRightString(400, y, str(item.get('dias_viatico_traslado', 0)))
+        c.drawRightString(470, y, str(item.get('horas_totales', 0)))
+        y -= 14
+
+    c.save()
+    buffer.seek(0)
+    response = make_response(buffer.getvalue())
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'attachment; filename=viaticos_{fecha_desde}_a_{fecha_hasta}.pdf'
+    return response
 
 from routes.auth import auth_bp
 from routes.admin import admin_bp

@@ -58,39 +58,6 @@ class Obra(db.Model):
         }
 
 
-class Asignacion(db.Model):
-    __tablename__ = 'asignaciones'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    personal_id = db.Column(db.Integer, db.ForeignKey('personal.id'), nullable=False)
-    obra_id = db.Column(db.Integer, db.ForeignKey('obras.id'), nullable=False)
-    fecha_asignacion = db.Column(db.String(10), nullable=False)
-    fecha_fin = db.Column(db.String(10))
-    puesto = db.Column(db.String(100))
-    frente = db.Column(db.String(100))
-    estado = db.Column(db.String(20), default='activa')
-    fecha_creacion = db.Column(db.DateTime, default=datetime.now)
-    
-    personal = db.relationship('Personal', backref='asignaciones')
-    obra = db.relationship('Obra', backref='asignaciones')
-    
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'personal_id': self.personal_id,
-            'obra_id': self.obra_id,
-            'personal_nombre': self.personal.nombre,
-            'personal_apellido': self.personal.apellido,
-            'personal_lugar_trabajo': self.personal.lugar_trabajo,
-            'obra_nombre': self.obra.nombre,
-            'fecha_asignacion': self.fecha_asignacion,
-            'fecha_fin': self.fecha_fin,
-            'puesto': self.puesto,
-            'frente': self.frente,
-            'estado': self.estado
-        }
-
-
 class Presentismo(db.Model):
     __tablename__ = 'presentismo'
     
@@ -99,6 +66,8 @@ class Presentismo(db.Model):
     obra_id = db.Column(db.Integer, db.ForeignKey('obras.id'), nullable=False)
     fecha = db.Column(db.String(10), nullable=False)
     tipo = db.Column(db.String(50), nullable=False)
+    viatico_vivienda = db.Column(db.Boolean, nullable=False, default=False)
+    viatico_traslado = db.Column(db.Boolean, nullable=False, default=False)
     descripcion = db.Column(db.Text)
     notas = db.Column(db.Text)
     fecha_creacion = db.Column(db.DateTime, default=datetime.now)
@@ -118,6 +87,8 @@ class Presentismo(db.Model):
             'obra_nombre': self.obra.nombre,
             'fecha': self.fecha,
             'tipo': self.tipo,
+            'viatico_vivienda': self.viatico_vivienda,
+            'viatico_traslado': self.viatico_traslado,
             'descripcion': self.descripcion,
             'notas': self.notas
         }

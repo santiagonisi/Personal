@@ -31,6 +31,9 @@
                 {% endif %}
                 {% if current_user.is_authenticated and current_user.es_admin() %}
                 <li class="nav-item">
+                    <a href="/viaticos" class="nav-link">Viáticos</a>
+                </li>
+                <li class="nav-item">
                     <a href="/historico-obreros" class="nav-link">Histórico</a>
                 </li>
                 {% endif %}

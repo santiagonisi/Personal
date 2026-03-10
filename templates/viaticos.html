@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}Viáticos por Empleado - Control de Nómina en Obra{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-title">💸 Viáticos por Empleado</div>
+
+    <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: end;">
+        <div style="min-width: 190px;">
+            <label>Fecha desde *</label>
+            <input type="date" id="fecha_desde" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
+        <div style="min-width: 190px;">
+            <label>Fecha hasta *</label>
+            <input type="date" id="fecha_hasta" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
+        <div style="min-width: 240px; flex: 1;">
+            <label>Buscar empleado (opcional)</label>
+            <input type="text" id="nombre" placeholder="Ej: Perez o Juan Perez" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
+        <button class="btn btn-edit" onclick="cargarResumenViaticos()">Cargar Resumen</button>
+        <button class="btn btn-success" onclick="descargarPdfViaticos()">Descargar PDF</button>
+    </div>
+
+    <div id="resumen-viaticos" style="margin-bottom: 15px; color: #666;"></div>
+
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Empleado</th>
+                    <th>Días registro</th>
+                    <th>Días presente</th>
+                    <th>Días Vivienda</th>
+                    <th>Días Traslado</th>
+                    <th>Horas totales</th>
+                    <th>Estado fórmula</th>
+                </tr>
+            </thead>
+            <tbody id="viaticos-table">
+                <tr><td colspan="7" style="text-align: center;">Seleccione rango de fechas para analizar viáticos</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+let viaticosActuales = [];
+
+function estadoFormula(item) {
+    return 'Pendiente de fórmula interna';
+}
+
+async function cargarResumenViaticos() {
+    const fechaDesde = document.getElementById('fecha_desde').value;
+    const fechaHasta = document.getElementById('fecha_hasta').value;
+    const nombre = document.getElementById('nombre').value.trim();
+
+    if (!fechaDesde || !fechaHasta) {
+        showNotification('Debe completar fecha desde y fecha hasta', 'error');
+        return;
+    }
+
+    const params = new URLSearchParams({
+        fecha_desde: fechaDesde,
+        fecha_hasta: fechaHasta
+    });
+
+    if (nombre) {
+        params.append('nombre', nombre);
+    }
+
+    try {
+        const data = await apiCall(`/api/viaticos/resumen?${params.toString()}`);
+        viaticosActuales = data.items || [];
+
+        const table = document.getElementById('viaticos-table');
+        const resumen = document.getElementById('resumen-viaticos');
+
+        table.innerHTML = '';
+
+        if (viaticosActuales.length === 0) {
+            table.innerHTML = '<tr><td colspan="7" style="text-align: center;">No hay datos de parte diario en ese rango</td></tr>';
+            resumen.textContent = 'Sin información para calcular viáticos';
+            return;
+        }
+
+        viaticosActuales.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${item.apellido}, ${item.nombre}</td>
+                <td>${item.dias_con_registro}</td>
+                <td>${item.dias_presente}</td>
+                <td>${item.dias_viatico_vivienda}</td>
+                <td>${item.dias_viatico_traslado}</td>
+                <td>${item.horas_totales || 0}</td>
+                <td>${estadoFormula(item)}</td>
+            `;
+            table.appendChild(tr);
+        });
+
+        resumen.textContent = `Rango: ${formatDate(data.fecha_desde)} a ${formatDate(data.fecha_hasta)} | Empleados analizados: ${data.total_empleados}`;
+    } catch (error) {
+        console.error('Error cargando resumen de viáticos:', error);
+        showNotification('No se pudo cargar el resumen de viáticos', 'error');
+    }
+}
+
+function descargarPdfViaticos() {
+    const fechaDesde = document.getElementById('fecha_desde').value;
+    const fechaHasta = document.getElementById('fecha_hasta').value;
+    const nombre = document.getElementById('nombre').value.trim();
+
+    if (!fechaDesde || !fechaHasta) {
+        showNotification('Debe completar fecha desde y fecha hasta', 'error');
+        return;
+    }
+
+    const params = new URLSearchParams({
+        fecha_desde: fechaDesde,
+        fecha_hasta: fechaHasta
+    });
+
+    if (nombre) {
+        params.append('nombre', nombre);
+    }
+
+    window.location.href = `/api/viaticos/resumen.pdf?${params.toString()}`;
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    const hoy = new Date();
+    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+
+    document.getElementById('fecha_desde').value = inicioMes.toISOString().split('T')[0];
+    document.getElementById('fecha_hasta').value = hoy.toISOString().split('T')[0];
+});
+</script>
+{% endblock %}

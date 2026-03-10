@@ -77,16 +77,28 @@ def cleanup_personal_legacy_columns():
     db.session.execute(text("PRAGMA foreign_keys=ON"))
     db.session.commit()
 
-def ensure_asignaciones_frente_column():
-    columnas = db.session.execute(text("PRAGMA table_info(asignaciones)")).fetchall()
+def ensure_operational_indexes():
+    db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_presentismo_obra_fecha ON presentismo (obra_id, fecha)"))
+    db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_presentismo_personal_fecha ON presentismo (personal_id, fecha)"))
+    db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_ingresos_obra_fecha ON ingresos_egresos (obra_id, fecha)"))
+    db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_ingresos_personal_fecha ON ingresos_egresos (personal_id, fecha)"))
+    db.session.commit()
+
+def ensure_presentismo_viaticos_columns():
+    columnas = db.session.execute(text("PRAGMA table_info(presentismo)")).fetchall()
     nombres_columnas = {columna[1] for columna in columnas}
     cambios = False
 
-    if 'frente' not in nombres_columnas:
-        db.session.execute(text("ALTER TABLE asignaciones ADD COLUMN frente VARCHAR(100)"))
+    if 'viatico_vivienda' not in nombres_columnas:
+        db.session.execute(text("ALTER TABLE presentismo ADD COLUMN viatico_vivienda BOOLEAN DEFAULT 0"))
+        cambios = True
+
+    if 'viatico_traslado' not in nombres_columnas:
+        db.session.execute(text("ALTER TABLE presentismo ADD COLUMN viatico_traslado BOOLEAN DEFAULT 0"))
         cambios = True
 
     if cambios:
+        db.session.execute(text("UPDATE presentismo SET viatico_vivienda = COALESCE(viatico_vivienda, 0), viatico_traslado = COALESCE(viatico_traslado, 0)"))
         db.session.commit()
 
 def create_app():
@@ -94,9 +106,9 @@ def create_app():
                 template_folder=os.path.join(os.path.dirname(__file__), 'templates'),
                 static_folder=os.path.join(os.path.dirname(__file__), 'static'))
     
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///nomina.db'
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///nomina.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['SECRET_KEY'] = 'tu-clave-secreta-aqui'
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-me')
     app.config['JSON_SORT_KEYS'] = False
     
     db.init_app(app)
@@ -109,7 +121,8 @@ def create_app():
         ensure_personal_lugar_trabajo_column()
         cleanup_personal_legacy_columns()
         ensure_personal_legajo_column()
-        ensure_asignaciones_frente_column()
+        ensure_presentismo_viaticos_columns()
+        ensure_operational_indexes()
         
         # Cargar usuario por ID para Flask-Login
         from models.usuario import Usuario
@@ -118,12 +131,11 @@ def create_app():
         def load_user(user_id):
             return Usuario.query.get(int(user_id))
     
-    from routes import main_bp, personal_bp, obras_bp, asignaciones_bp, auth_bp, admin_bp
+    from routes import main_bp, personal_bp, obras_bp, auth_bp, admin_bp
     
     app.register_blueprint(main_bp)
     app.register_blueprint(personal_bp)
     app.register_blueprint(obras_bp)
-    app.register_blueprint(asignaciones_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
     

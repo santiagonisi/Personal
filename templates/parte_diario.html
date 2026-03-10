@@ -35,12 +35,13 @@
                     <th>Ingreso</th>
                     <th>Salida</th>
                     <th>Horas</th>
-                    <th>Observación</th>
+                    <th>Vivienda</th>
+                    <th>Traslado</th>
                     <th>Acción</th>
                 </tr>
             </thead>
             <tbody id="parte-diario-table">
-                <tr><td colspan="10" style="text-align: center;">Seleccione obra y fecha para cargar el parte diario</td></tr>
+                <tr><td colspan="11" style="text-align: center;">Seleccione obra y fecha para cargar el parte diario</td></tr>
             </tbody>
         </table>
     </div>
@@ -120,7 +121,8 @@ function crearFilaObrero(item, obraId, fecha) {
         <td><input type="time" class="hora-ingreso" value="${item.hora_ingreso || ''}" style="padding: 6px;"></td>
         <td><input type="time" class="hora-egreso" value="${item.hora_egreso || ''}" style="padding: 6px;"></td>
         <td class="horas-calc">${horasTexto}</td>
-        <td><input type="text" class="notas" value="${item.notas || ''}" placeholder="Observación" style="padding: 6px; width: 180px;"></td>
+        <td style="text-align: center;"><input type="checkbox" class="viatico-vivienda" ${item.viatico_vivienda ? 'checked' : ''}></td>
+        <td style="text-align: center;"><input type="checkbox" class="viatico-traslado" ${item.viatico_traslado ? 'checked' : ''}></td>
         <td>
             <button class="btn btn-success btn-small" onclick="guardarFila(this, ${obraId}, '${fecha}')">Guardar</button>
         </td>
@@ -130,6 +132,8 @@ function crearFilaObrero(item, obraId, fecha) {
     const tipoSelect = tr.querySelector('.tipo');
     const ingresoInput = tr.querySelector('.hora-ingreso');
     const egresoInput = tr.querySelector('.hora-egreso');
+    const viviendaCheck = tr.querySelector('.viatico-vivienda');
+    const trasladoCheck = tr.querySelector('.viatico-traslado');
 
     function aplicarEstadoEnObra() {
         const enObra = checkbox.checked;
@@ -137,14 +141,20 @@ function crearFilaObrero(item, obraId, fecha) {
             tipoSelect.value = 'presente';
             ingresoInput.disabled = false;
             egresoInput.disabled = false;
+            viviendaCheck.disabled = false;
+            trasladoCheck.disabled = false;
         } else {
             if (tipoSelect.value === 'presente') {
                 tipoSelect.value = 'ausente_sin_aviso';
             }
             ingresoInput.value = '';
             egresoInput.value = '';
+            viviendaCheck.checked = false;
+            trasladoCheck.checked = false;
             ingresoInput.disabled = true;
             egresoInput.disabled = true;
+            viviendaCheck.disabled = true;
+            trasladoCheck.disabled = true;
             calcularHorasFila(tr);
         }
     }
@@ -180,7 +190,7 @@ async function cargarParteDiario() {
         table.innerHTML = '';
 
         if (!data.filas || data.filas.length === 0) {
-            table.innerHTML = '<tr><td colspan="10" style="text-align: center;">No hay empleados con lugar de trabajo obra</td></tr>';
+            table.innerHTML = '<tr><td colspan="11" style="text-align: center;">No hay empleados con lugar de trabajo obra</td></tr>';
             resumen.textContent = 'Sin datos para mostrar';
             return;
         }
@@ -215,7 +225,8 @@ async function guardarFilaDesdeElemento(fila, obraId, fecha) {
     const tipo = enObra ? 'presente' : (tipoSeleccionado === 'presente' ? 'ausente_sin_aviso' : tipoSeleccionado);
     const horaIngreso = enObra ? fila.querySelector('.hora-ingreso').value : '';
     const horaEgreso = enObra ? fila.querySelector('.hora-egreso').value : '';
-    const notas = fila.querySelector('.notas').value;
+    const viaticoVivienda = enObra ? fila.querySelector('.viatico-vivienda').checked : false;
+    const viaticoTraslado = enObra ? fila.querySelector('.viatico-traslado').checked : false;
 
     calcularHorasFila(fila);
 
@@ -224,10 +235,12 @@ async function guardarFilaDesdeElemento(fila, obraId, fecha) {
         personal_id: personalId,
         fecha,
         tipo,
+        viatico_vivienda: viaticoVivienda,
+        viatico_traslado: viaticoTraslado,
         descripcion: '',
         hora_ingreso: horaIngreso,
         hora_egreso: horaEgreso,
-        notas
+        notas: ''
     };
 
     await apiCall('/api/parte-diario', 'POST', payload);
