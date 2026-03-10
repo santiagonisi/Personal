@@ -106,7 +106,7 @@ def create_app():
     
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///nomina.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-me')
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY') or os.urandom(32).hex()
     app.config['JSON_SORT_KEYS'] = False
     
     db.init_app(app)
