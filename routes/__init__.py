@@ -4,6 +4,82 @@ from models import Personal, Obra, Presentismo, IngresoEgreso
 from app import db
 from functools import wraps
 from datetime import datetime, timedelta
+from sqlalchemy import text
+
+VIATICO_VALOR_CLAVE = 'viatico_valor_base'
+
+def obtener_valor_viatico_base():
+    fila = db.session.execute(
+        text("SELECT valor FROM configuraciones WHERE clave = :clave"),
+        {'clave': VIATICO_VALOR_CLAVE}
+    ).fetchone()
+
+    if not fila or fila[0] is None:
+        return 0.0
+
+    try:
+        return max(0.0, float(fila[0]))
+    except (TypeError, ValueError):
+        return 0.0
+
+def guardar_valor_viatico_base(valor_base):
+    existe = db.session.execute(
+        text("SELECT 1 FROM configuraciones WHERE clave = :clave"),
+        {'clave': VIATICO_VALOR_CLAVE}
+    ).fetchone()
+
+    if existe:
+        db.session.execute(
+            text("""
+                UPDATE configuraciones
+                SET valor = :valor, fecha_actualizacion = CURRENT_TIMESTAMP
+                WHERE clave = :clave
+            """),
+            {'clave': VIATICO_VALOR_CLAVE, 'valor': str(valor_base)}
+        )
+    else:
+        db.session.execute(
+            text("""
+                INSERT INTO configuraciones (clave, valor, fecha_actualizacion)
+                VALUES (:clave, :valor, CURRENT_TIMESTAMP)
+            """),
+            {'clave': VIATICO_VALOR_CLAVE, 'valor': str(valor_base)}
+        )
+
+    db.session.commit()
+
+def calcular_monto_viatico_por_registro(presentismo, valor_base, valor_medio):
+    checks_viatico = int(bool(presentismo.viatico_vivienda)) + int(bool(presentismo.viatico_traslado))
+    if checks_viatico >= 2:
+        return 'entero', valor_base
+    if checks_viatico == 1:
+        return 'medio', valor_medio
+    return 'sin_viatico', 0.0
+
+def calcular_monto_viatico_por_checks(viatico_vivienda, viatico_traslado, valor_base, valor_medio):
+    checks_viatico = int(bool(viatico_vivienda)) + int(bool(viatico_traslado))
+    if checks_viatico >= 2:
+        return 'entero', valor_base
+    if checks_viatico == 1:
+        return 'medio', valor_medio
+    return 'sin_viatico', 0.0
+
+def obtener_viatico_congelado_o_calculado(presentismo, valor_base_actual, valor_medio_actual):
+    clasificacion = (presentismo.viatico_clasificacion or '').strip().lower()
+    if clasificacion in {'entero', 'medio', 'sin_viatico'} and presentismo.viatico_monto is not None:
+        return clasificacion, round(float(presentismo.viatico_monto), 2)
+
+    valor_base_referencia = presentismo.viatico_valor_base_aplicado
+    if valor_base_referencia is None:
+        valor_base_referencia = valor_base_actual
+    valor_base_referencia = round(float(valor_base_referencia or 0), 2)
+    valor_medio_referencia = round(valor_base_referencia * 0.5, 2)
+
+    return calcular_monto_viatico_por_registro(
+        presentismo,
+        valor_base_referencia,
+        valor_medio_referencia
+    )
 
 def admin_required(f):
     """Decorador para requerir rol de admin"""
@@ -128,6 +204,36 @@ def viaticos_page():
     if not current_user.es_admin():
         return redirect(url_for('main.dashboard'))
     return render_template('viaticos.html')
+
+
+@main_bp.route('/api/viaticos/configuracion', methods=['GET', 'PUT'])
+@admin_required
+def viaticos_configuracion():
+    if request.method == 'GET':
+        valor_base = obtener_valor_viatico_base()
+        valor_medio = round(valor_base * 0.5, 2)
+        return jsonify({
+            'valor_viatico_base': valor_base,
+            'valor_medio_viatico': valor_medio
+        })
+
+    data = request.json or {}
+    valor_base = data.get('valor_viatico_base')
+
+    try:
+        valor_base = round(float(valor_base), 2)
+    except (TypeError, ValueError):
+        return jsonify({'error': 'valor_viatico_base debe ser numérico'}), 400
+
+    if valor_base < 0:
+        return jsonify({'error': 'valor_viatico_base no puede ser negativo'}), 400
+
+    guardar_valor_viatico_base(valor_base)
+    return jsonify({
+        'ok': True,
+        'valor_viatico_base': valor_base,
+        'valor_medio_viatico': round(valor_base * 0.5, 2)
+    })
 
 
 personal_bp = Blueprint('personal', __name__, url_prefix='/api/personal')
@@ -368,6 +474,14 @@ def guardar_parte_diario():
     notas = data.get('notas')
     viatico_vivienda = bool(data.get('viatico_vivienda', False))
     viatico_traslado = bool(data.get('viatico_traslado', False))
+    valor_viatico_base = obtener_valor_viatico_base()
+    valor_medio_viatico = round(valor_viatico_base * 0.5, 2)
+    clasificacion_viatico, monto_viatico = calcular_monto_viatico_por_checks(
+        viatico_vivienda,
+        viatico_traslado,
+        valor_viatico_base,
+        valor_medio_viatico
+    )
 
     if not obra_id or not personal_id or not tipo:
         return jsonify({'error': 'obra_id, personal_id y tipo son requeridos'}), 400
@@ -383,6 +497,9 @@ def guardar_parte_diario():
         presentismo.descripcion = descripcion
         presentismo.viatico_vivienda = viatico_vivienda
         presentismo.viatico_traslado = viatico_traslado
+        presentismo.viatico_clasificacion = clasificacion_viatico
+        presentismo.viatico_valor_base_aplicado = valor_viatico_base
+        presentismo.viatico_monto = monto_viatico
     else:
         presentismo = Presentismo(
             personal_id=personal_id,
@@ -391,6 +508,9 @@ def guardar_parte_diario():
             tipo=tipo,
             viatico_vivienda=viatico_vivienda,
             viatico_traslado=viatico_traslado,
+            viatico_clasificacion=clasificacion_viatico,
+            viatico_valor_base_aplicado=valor_viatico_base,
+            viatico_monto=monto_viatico,
             descripcion=descripcion,
             notas=''
         )
@@ -522,6 +642,9 @@ def get_viaticos_resumen():
     if fecha_desde > fecha_hasta:
         return jsonify({'error': 'fecha_desde no puede ser mayor a fecha_hasta'}), 400
 
+    valor_viatico_base = obtener_valor_viatico_base()
+    valor_medio_viatico = round(valor_viatico_base * 0.5, 2)
+
     presentismos_query = Presentismo.query.filter(
         Presentismo.fecha >= fecha_desde,
         Presentismo.fecha <= fecha_hasta
@@ -552,7 +675,11 @@ def get_viaticos_resumen():
                 'dias_presente': 0,
                 'dias_viatico_vivienda': 0,
                 'dias_viatico_traslado': 0,
+                'dias_viatico_entero': 0,
+                'dias_viatico_medio': 0,
+                'dias_sin_viatico': 0,
                 'horas_totales': 0,
+                'total_viatico': 0,
                 'detalles': []
             }
 
@@ -564,6 +691,19 @@ def get_viaticos_resumen():
             item['dias_viatico_vivienda'] += 1
         if p.viatico_traslado:
             item['dias_viatico_traslado'] += 1
+
+        clasificacion, monto_viatico = obtener_viatico_congelado_o_calculado(
+            p,
+            valor_viatico_base,
+            valor_medio_viatico
+        )
+        if clasificacion == 'entero':
+            item['dias_viatico_entero'] += 1
+        elif clasificacion == 'medio':
+            item['dias_viatico_medio'] += 1
+        else:
+            item['dias_sin_viatico'] += 1
+        item['total_viatico'] = round(item['total_viatico'] + monto_viatico, 2)
 
         ingreso = ingresos_map.get((p.personal_id, p.obra_id, p.fecha))
         horas = ingreso.horas_trabajadas if ingreso and ingreso.horas_trabajadas is not None else 0
@@ -577,7 +717,8 @@ def get_viaticos_resumen():
             'viatico_vivienda': bool(p.viatico_vivienda),
             'viatico_traslado': bool(p.viatico_traslado),
             'horas_trabajadas': horas,
-            'clasificacion_formula': 'pendiente_formula'
+            'clasificacion_formula': clasificacion,
+            'monto_viatico': monto_viatico
         })
 
     data = list(resumen.values())
@@ -594,6 +735,8 @@ def get_viaticos_resumen():
         'fecha_desde': fecha_desde,
         'fecha_hasta': fecha_hasta,
         'nombre': nombre,
+        'valor_viatico_base': valor_viatico_base,
+        'valor_medio_viatico': valor_medio_viatico,
         'total_empleados': len(data),
         'items': data
     })
@@ -618,6 +761,9 @@ def get_viaticos_resumen_pdf():
     if fecha_desde > fecha_hasta:
         return jsonify({'error': 'fecha_desde no puede ser mayor a fecha_hasta'}), 400
 
+    valor_viatico_base = obtener_valor_viatico_base()
+    valor_medio_viatico = round(valor_viatico_base * 0.5, 2)
+
     presentismos_query = Presentismo.query.filter(
         Presentismo.fecha >= fecha_desde,
         Presentismo.fecha <= fecha_hasta
@@ -648,7 +794,13 @@ def get_viaticos_resumen_pdf():
                 'dias_presente': 0,
                 'dias_viatico_vivienda': 0,
                 'dias_viatico_traslado': 0,
+                'dias_viatico_entero': 0,
+                'dias_viatico_medio': 0,
+                'dias_sin_viatico': 0,
                 'horas_totales': 0,
+                'total_viatico': 0,
+                'fecha_ultimo_registro': '',
+                'valor_viatico_referencia': 0,
             }
 
         item = resumen[key]
@@ -660,9 +812,27 @@ def get_viaticos_resumen_pdf():
         if p.viatico_traslado:
             item['dias_viatico_traslado'] += 1
 
+        clasificacion, monto_viatico = obtener_viatico_congelado_o_calculado(
+            p,
+            valor_viatico_base,
+            valor_medio_viatico
+        )
+        if clasificacion == 'entero':
+            item['dias_viatico_entero'] += 1
+        elif clasificacion == 'medio':
+            item['dias_viatico_medio'] += 1
+        else:
+            item['dias_sin_viatico'] += 1
+        item['total_viatico'] = round(item['total_viatico'] + monto_viatico, 2)
+
         ingreso = ingresos_map.get((p.personal_id, p.obra_id, p.fecha))
         horas = ingreso.horas_trabajadas if ingreso and ingreso.horas_trabajadas is not None else 0
         item['horas_totales'] = round(item['horas_totales'] + horas, 2)
+
+        valor_base_registro = p.viatico_valor_base_aplicado if p.viatico_valor_base_aplicado is not None else valor_viatico_base
+        if p.fecha and p.fecha >= (item['fecha_ultimo_registro'] or ''):
+            item['fecha_ultimo_registro'] = p.fecha
+            item['valor_viatico_referencia'] = round(float(valor_base_registro or 0), 2)
 
     data = list(resumen.values())
     if nombre:
@@ -672,67 +842,90 @@ def get_viaticos_resumen_pdf():
         ]
     data.sort(key=lambda x: (x.get('apellido') or '', x.get('nombre') or ''))
 
+    if len(data) == 0:
+        return jsonify({'error': 'No hay datos para exportar en ese rango'}), 404
+
     import io
-    buffer = io.BytesIO()
-    c = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
-    y = height - 40
+    import zipfile
+    import re
 
-    c.setTitle('Resumen de Viaticos')
-    c.setFont('Helvetica-Bold', 12)
-    c.drawString(40, y, 'Resumen de Viaticos por Empleado')
-    y -= 18
-    c.setFont('Helvetica', 10)
-    c.drawString(40, y, f'Rango: {fecha_desde} a {fecha_hasta}')
-    y -= 14
-    if nombre:
-        c.drawString(40, y, f'Filtro nombre: {nombre}')
-        y -= 14
-    c.drawString(40, y, f'Total empleados: {len(data)}')
-    y -= 20
+    fecha_descarga = datetime.now().strftime('%d/%m/%Y')
 
-    c.setFont('Helvetica-Bold', 9)
-    c.drawString(40, y, 'Empleado')
-    c.drawString(200, y, 'Registros')
-    c.drawString(255, y, 'Presentes')
-    c.drawString(310, y, 'Vivienda')
-    c.drawString(365, y, 'Traslado')
-    c.drawString(420, y, 'Horas')
-    y -= 12
-    c.line(40, y, 560, y)
-    y -= 12
+    def slugify_filename(texto):
+        limpio = re.sub(r'[^A-Za-z0-9_-]+', '_', (texto or '').strip())
+        return limpio.strip('_') or 'empleado'
 
-    c.setFont('Helvetica', 9)
+    def generar_pdf_empleado(item):
+        buffer = io.BytesIO()
+        c = canvas.Canvas(buffer, pagesize=A4)
+        width, height = A4
+        y = height - 40
+
+        nombre_completo = f"{item.get('nombre', '')} {item.get('apellido', '')}".strip()
+
+        c.setTitle(f'Viatico_{nombre_completo}')
+        c.setFont('Helvetica-Bold', 12)
+        c.drawString(40, y, nombre_completo)
+        c.setFont('Helvetica', 10)
+        c.drawRightString(width - 40, y, f'Fecha: {fecha_descarga}')
+        y -= 18
+
+        c.setFont('Helvetica', 10)
+        c.drawString(40, y, f'Periodo: {fecha_desde} a {fecha_hasta}')
+        y -= 22
+
+        c.setFont('Helvetica-Bold', 11)
+        c.drawString(40, y, 'Desglose')
+        y -= 16
+
+        c.setFont('Helvetica', 10)
+        c.drawString(40, y, f'Dias trabajados: {item.get("dias_presente", 0)}')
+        y -= 16
+        c.drawString(40, y, f'Hs trabajadas: {item.get("horas_totales", 0)}')
+        y -= 16
+
+        valor_viatico_referencia = item.get('valor_viatico_referencia', valor_viatico_base)
+        c.drawString(40, y, f'Valor viatico a la fecha: ${valor_viatico_referencia:.2f}')
+        y -= 16
+
+        c.drawString(40, y, f'Dias viatico entero: {item.get("dias_viatico_entero", 0)}')
+        y -= 16
+        c.drawString(40, y, f'Dias viatico medio: {item.get("dias_viatico_medio", 0)}')
+        y -= 16
+        c.drawString(40, y, f'Dias sin viatico: {item.get("dias_sin_viatico", 0)}')
+        y -= 24
+
+        c.setFont('Helvetica-Bold', 11)
+        c.drawString(40, y, f'Total viatico (sumatoria): ${item.get("total_viatico", 0):.2f}')
+
+        c.save()
+        buffer.seek(0)
+        return buffer.getvalue()
+
+    archivos = []
+    fecha_archivo = fecha_hasta
     for item in data:
-        if y < 60:
-            c.showPage()
-            y = height - 40
-            c.setFont('Helvetica-Bold', 9)
-            c.drawString(40, y, 'Empleado')
-            c.drawString(200, y, 'Registros')
-            c.drawString(255, y, 'Presentes')
-            c.drawString(310, y, 'Vivienda')
-            c.drawString(365, y, 'Traslado')
-            c.drawString(420, y, 'Horas')
-            y -= 12
-            c.line(40, y, 560, y)
-            y -= 12
-            c.setFont('Helvetica', 9)
+        apellido = slugify_filename(item.get('apellido', '')).upper()
+        nombre_archivo = slugify_filename(item.get('nombre', '')).lower()
+        archivo_pdf = f'{fecha_archivo}-{apellido}-{nombre_archivo}.pdf'
+        archivos.append((archivo_pdf, generar_pdf_empleado(item)))
 
-        empleado = f"{item.get('apellido', '')}, {item.get('nombre', '')}"[:30]
-        c.drawString(40, y, empleado)
-        c.drawRightString(235, y, str(item.get('dias_con_registro', 0)))
-        c.drawRightString(290, y, str(item.get('dias_presente', 0)))
-        c.drawRightString(345, y, str(item.get('dias_viatico_vivienda', 0)))
-        c.drawRightString(400, y, str(item.get('dias_viatico_traslado', 0)))
-        c.drawRightString(470, y, str(item.get('horas_totales', 0)))
-        y -= 14
+    if len(archivos) == 1:
+        nombre_archivo, contenido = archivos[0]
+        response = make_response(contenido)
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'attachment; filename={nombre_archivo}'
+        return response
 
-    c.save()
-    buffer.seek(0)
-    response = make_response(buffer.getvalue())
-    response.headers['Content-Type'] = 'application/pdf'
-    response.headers['Content-Disposition'] = f'attachment; filename=viaticos_{fecha_desde}_a_{fecha_hasta}.pdf'
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, mode='w', compression=zipfile.ZIP_DEFLATED) as zip_file:
+        for nombre_archivo, contenido in archivos:
+            zip_file.writestr(nombre_archivo, contenido)
+
+    zip_buffer.seek(0)
+    response = make_response(zip_buffer.getvalue())
+    response.headers['Content-Type'] = 'application/zip'
+    response.headers['Content-Disposition'] = f'attachment; filename=viaticos_{fecha_desde}_a_{fecha_hasta}.zip'
     return response
 
 from routes.auth import auth_bp

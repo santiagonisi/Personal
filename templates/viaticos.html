@@ -6,6 +6,18 @@
 <div class="card">
     <div class="card-title">💸 Viáticos por Empleado</div>
 
+    <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; align-items: end;">
+        <div style="min-width: 220px;">
+            <label>Valor viático entero *</label>
+            <input type="number" id="valor_viatico_base" min="0" step="0.01" placeholder="Ej: 25000" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
+        <div style="min-width: 220px;">
+            <label>Medio viático (50%)</label>
+            <input type="number" id="valor_medio_viatico" readonly style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background: #f7f7f7;">
+        </div>
+        <button class="btn btn-success" onclick="guardarConfiguracionViaticos()">Guardar valor viático</button>
+    </div>
+
     <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: end;">
         <div style="min-width: 190px;">
             <label>Fecha desde *</label>
@@ -34,12 +46,15 @@
                     <th>Días presente</th>
                     <th>Días Vivienda</th>
                     <th>Días Traslado</th>
+                    <th>Días Entero</th>
+                    <th>Días Medio</th>
+                    <th>Días Sin Viático</th>
                     <th>Horas totales</th>
-                    <th>Sumatoria</th>
+                    <th>Sumatoria Viático</th>
                 </tr>
             </thead>
             <tbody id="viaticos-table">
-                <tr><td colspan="7" style="text-align: center;">Seleccione rango de fechas para analizar viáticos</td></tr>
+                <tr><td colspan="10" style="text-align: center;">Seleccione rango de fechas para analizar viáticos</td></tr>
             </tbody>
         </table>
     </div>
@@ -47,9 +62,60 @@
 
 <script>
 let viaticosActuales = [];
+let configuracionViaticos = {
+    valor_viatico_base: 0,
+    valor_medio_viatico: 0
+};
 
 function estadoFormula(item) {
-    return 'Pendiente de fórmula interna';
+    return `${formatMoney(item.total_viatico || 0)} (Ent: ${item.dias_viatico_entero || 0} | Med: ${item.dias_viatico_medio || 0} | Sin: ${item.dias_sin_viatico || 0})`;
+}
+
+function formatMoney(value) {
+    return Number(value || 0).toLocaleString('es-AR', {
+        style: 'currency',
+        currency: 'ARS',
+        minimumFractionDigits: 2
+    });
+}
+
+function actualizarMedioViatico() {
+    const base = parseFloat(document.getElementById('valor_viatico_base').value) || 0;
+    const medio = Number((base * 0.5).toFixed(2));
+    document.getElementById('valor_medio_viatico').value = medio;
+}
+
+async function cargarConfiguracionViaticos() {
+    try {
+        const data = await apiCall('/api/viaticos/configuracion');
+        configuracionViaticos = data;
+        document.getElementById('valor_viatico_base').value = data.valor_viatico_base || 0;
+        document.getElementById('valor_medio_viatico').value = data.valor_medio_viatico || 0;
+    } catch (error) {
+        console.error('Error cargando configuración de viáticos:', error);
+    }
+}
+
+async function guardarConfiguracionViaticos() {
+    const base = parseFloat(document.getElementById('valor_viatico_base').value);
+
+    if (isNaN(base) || base < 0) {
+        showNotification('Ingrese un valor de viático válido', 'error');
+        return;
+    }
+
+    try {
+        const data = await apiCall('/api/viaticos/configuracion', 'PUT', {
+            valor_viatico_base: Number(base.toFixed(2))
+        });
+        configuracionViaticos = data;
+        document.getElementById('valor_viatico_base').value = data.valor_viatico_base;
+        document.getElementById('valor_medio_viatico').value = data.valor_medio_viatico;
+        showNotification('Valor de viático guardado correctamente');
+    } catch (error) {
+        console.error('Error guardando configuración de viáticos:', error);
+        showNotification('No se pudo guardar el valor de viático', 'error');
+    }
 }
 
 async function cargarResumenViaticos() {
@@ -81,7 +147,7 @@ async function cargarResumenViaticos() {
         table.innerHTML = '';
 
         if (viaticosActuales.length === 0) {
-            table.innerHTML = '<tr><td colspan="7" style="text-align: center;">No hay datos de parte diario en ese rango</td></tr>';
+            table.innerHTML = '<tr><td colspan="10" style="text-align: center;">No hay datos de parte diario en ese rango</td></tr>';
             resumen.textContent = 'Sin información para calcular viáticos';
             return;
         }
@@ -94,13 +160,24 @@ async function cargarResumenViaticos() {
                 <td>${item.dias_presente}</td>
                 <td>${item.dias_viatico_vivienda}</td>
                 <td>${item.dias_viatico_traslado}</td>
+                <td>${item.dias_viatico_entero || 0}</td>
+                <td>${item.dias_viatico_medio || 0}</td>
+                <td>${item.dias_sin_viatico || 0}</td>
                 <td>${item.horas_totales || 0}</td>
                 <td>${estadoFormula(item)}</td>
             `;
             table.appendChild(tr);
         });
 
-        resumen.textContent = `Rango: ${formatDate(data.fecha_desde)} a ${formatDate(data.fecha_hasta)} | Empleados analizados: ${data.total_empleados}`;
+        configuracionViaticos = {
+            valor_viatico_base: data.valor_viatico_base || 0,
+            valor_medio_viatico: data.valor_medio_viatico || 0
+        };
+
+        document.getElementById('valor_viatico_base').value = configuracionViaticos.valor_viatico_base;
+        document.getElementById('valor_medio_viatico').value = configuracionViaticos.valor_medio_viatico;
+
+        resumen.textContent = `Rango: ${formatDate(data.fecha_desde)} a ${formatDate(data.fecha_hasta)} | Empleados analizados: ${data.total_empleados} | Viático entero: ${formatMoney(configuracionViaticos.valor_viatico_base)} | Medio: ${formatMoney(configuracionViaticos.valor_medio_viatico)}`;
     } catch (error) {
         console.error('Error cargando resumen de viáticos:', error);
         showNotification('No se pudo cargar el resumen de viáticos', 'error');
@@ -135,6 +212,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.getElementById('fecha_desde').value = inicioMes.toISOString().split('T')[0];
     document.getElementById('fecha_hasta').value = hoy.toISOString().split('T')[0];
+
+    document.getElementById('valor_viatico_base').addEventListener('input', actualizarMedioViatico);
+    await cargarConfiguracionViaticos();
 });
 </script>
 {% endblock %}

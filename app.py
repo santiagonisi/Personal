@@ -101,6 +101,43 @@ def ensure_presentismo_viaticos_columns():
         db.session.execute(text("UPDATE presentismo SET viatico_vivienda = COALESCE(viatico_vivienda, 0), viatico_traslado = COALESCE(viatico_traslado, 0)"))
         db.session.commit()
 
+def ensure_presentismo_viaticos_snapshot_columns():
+    columnas = db.session.execute(text("PRAGMA table_info(presentismo)")).fetchall()
+    nombres_columnas = {columna[1] for columna in columnas}
+    cambios = False
+
+    if 'viatico_clasificacion' not in nombres_columnas:
+        db.session.execute(text("ALTER TABLE presentismo ADD COLUMN viatico_clasificacion VARCHAR(20) DEFAULT 'sin_viatico'"))
+        cambios = True
+
+    if 'viatico_valor_base_aplicado' not in nombres_columnas:
+        db.session.execute(text("ALTER TABLE presentismo ADD COLUMN viatico_valor_base_aplicado FLOAT DEFAULT 0"))
+        cambios = True
+
+    if 'viatico_monto' not in nombres_columnas:
+        db.session.execute(text("ALTER TABLE presentismo ADD COLUMN viatico_monto FLOAT DEFAULT 0"))
+        cambios = True
+
+    if cambios:
+        db.session.execute(text("""
+            UPDATE presentismo
+            SET
+                viatico_clasificacion = COALESCE(viatico_clasificacion, 'sin_viatico'),
+                viatico_valor_base_aplicado = COALESCE(viatico_valor_base_aplicado, 0),
+                viatico_monto = COALESCE(viatico_monto, 0)
+        """))
+        db.session.commit()
+
+def ensure_configuraciones_table():
+    db.session.execute(text("""
+        CREATE TABLE IF NOT EXISTS configuraciones (
+            clave VARCHAR(100) PRIMARY KEY,
+            valor VARCHAR(255),
+            fecha_actualizacion DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """))
+    db.session.commit()
+
 def create_app():
     app = Flask(__name__, 
                 template_folder=os.path.join(os.path.dirname(__file__), 'templates'),
@@ -122,6 +159,8 @@ def create_app():
         cleanup_personal_legacy_columns()
         ensure_personal_legajo_column()
         ensure_presentismo_viaticos_columns()
+        ensure_configuraciones_table()
+        ensure_presentismo_viaticos_snapshot_columns()
         ensure_operational_indexes()
         
         # Cargar usuario por ID para Flask-Login
