@@ -68,6 +68,8 @@ class Presentismo(db.Model):
     tipo = db.Column(db.String(50), nullable=False)
     viatico_vivienda = db.Column(db.Boolean, nullable=False, default=False)
     viatico_traslado = db.Column(db.Boolean, nullable=False, default=False)
+    viatico_vivienda_nivel = db.Column(db.String(20), nullable=False, default='sin_viatico')
+    viatico_traslado_nivel = db.Column(db.String(20), nullable=False, default='sin_viatico')
     viatico_clasificacion = db.Column(db.String(20), nullable=False, default='sin_viatico')
     viatico_valor_base_aplicado = db.Column(db.Float, nullable=False, default=0)
     viatico_monto = db.Column(db.Float, nullable=False, default=0)
@@ -92,6 +94,8 @@ class Presentismo(db.Model):
             'tipo': self.tipo,
             'viatico_vivienda': self.viatico_vivienda,
             'viatico_traslado': self.viatico_traslado,
+            'viatico_vivienda_nivel': self.viatico_vivienda_nivel,
+            'viatico_traslado_nivel': self.viatico_traslado_nivel,
             'viatico_clasificacion': self.viatico_clasificacion,
             'viatico_valor_base_aplicado': self.viatico_valor_base_aplicado,
             'viatico_monto': self.viatico_monto,

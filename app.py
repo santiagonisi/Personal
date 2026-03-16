@@ -128,6 +128,35 @@ def ensure_presentismo_viaticos_snapshot_columns():
         """))
         db.session.commit()
 
+def ensure_presentismo_viaticos_level_columns():
+    columnas = db.session.execute(text("PRAGMA table_info(presentismo)")).fetchall()
+    nombres_columnas = {columna[1] for columna in columnas}
+    cambios = False
+
+    if 'viatico_vivienda_nivel' not in nombres_columnas:
+        db.session.execute(text("ALTER TABLE presentismo ADD COLUMN viatico_vivienda_nivel VARCHAR(20) DEFAULT 'sin_viatico'"))
+        cambios = True
+
+    if 'viatico_traslado_nivel' not in nombres_columnas:
+        db.session.execute(text("ALTER TABLE presentismo ADD COLUMN viatico_traslado_nivel VARCHAR(20) DEFAULT 'sin_viatico'"))
+        cambios = True
+
+    if cambios:
+        db.session.execute(text("""
+            UPDATE presentismo
+            SET
+                viatico_vivienda_nivel = CASE
+                    WHEN COALESCE(viatico_vivienda, 0) = 1 THEN 'medio'
+                    ELSE 'sin_viatico'
+                END,
+                viatico_traslado_nivel = CASE
+                    WHEN COALESCE(viatico_traslado, 0) = 1 THEN 'medio'
+                    ELSE 'sin_viatico'
+                END
+            WHERE viatico_vivienda_nivel IS NULL OR viatico_traslado_nivel IS NULL
+        """))
+        db.session.commit()
+
 def ensure_configuraciones_table():
     db.session.execute(text("""
         CREATE TABLE IF NOT EXISTS configuraciones (
@@ -161,6 +190,7 @@ def create_app():
         ensure_presentismo_viaticos_columns()
         ensure_configuraciones_table()
         ensure_presentismo_viaticos_snapshot_columns()
+        ensure_presentismo_viaticos_level_columns()
         ensure_operational_indexes()
         
         # Cargar usuario por ID para Flask-Login

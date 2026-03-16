@@ -49,10 +49,36 @@ def guardar_valor_viatico_base(valor_base):
     db.session.commit()
 
 def calcular_monto_viatico_por_registro(presentismo, valor_base, valor_medio):
+    nivel_vivienda = (presentismo.viatico_vivienda_nivel or '').strip().lower()
+    nivel_traslado = (presentismo.viatico_traslado_nivel or '').strip().lower()
+    if nivel_vivienda in {'sin_viatico', 'medio', 'entero'} and nivel_traslado in {'sin_viatico', 'medio', 'entero'}:
+        return calcular_monto_viatico_por_niveles(nivel_vivienda, nivel_traslado, valor_base, valor_medio)
+
     checks_viatico = int(bool(presentismo.viatico_vivienda)) + int(bool(presentismo.viatico_traslado))
     if checks_viatico >= 2:
         return 'entero', valor_base
     if checks_viatico == 1:
+        return 'medio', valor_medio
+    return 'sin_viatico', 0.0
+
+def normalizar_nivel_viatico(nivel):
+    valor = (nivel or '').strip().lower()
+    if valor in {'sin_viatico', 'medio', 'entero'}:
+        return valor
+    return 'sin_viatico'
+
+def calcular_monto_viatico_por_niveles(nivel_vivienda, nivel_traslado, valor_base, valor_medio):
+    ranking = {'sin_viatico': 0, 'medio': 1, 'entero': 2}
+    nivel_vivienda = normalizar_nivel_viatico(nivel_vivienda)
+    nivel_traslado = normalizar_nivel_viatico(nivel_traslado)
+
+    nivel_final = nivel_vivienda
+    if ranking[nivel_traslado] > ranking[nivel_final]:
+        nivel_final = nivel_traslado
+
+    if nivel_final == 'entero':
+        return 'entero', valor_base
+    if nivel_final == 'medio':
         return 'medio', valor_medio
     return 'sin_viatico', 0.0
 
@@ -443,6 +469,8 @@ def get_parte_diario():
             'en_obra': tipo == 'presente',
             'viatico_vivienda': bool(presentismo.viatico_vivienda) if presentismo else False,
             'viatico_traslado': bool(presentismo.viatico_traslado) if presentismo else False,
+            'viatico_vivienda_nivel': (presentismo.viatico_vivienda_nivel if presentismo else 'sin_viatico') or 'sin_viatico',
+            'viatico_traslado_nivel': (presentismo.viatico_traslado_nivel if presentismo else 'sin_viatico') or 'sin_viatico',
             'descripcion': presentismo.descripcion if presentismo else '',
             'ingreso_egreso_id': ingreso.id if ingreso else None,
             'hora_ingreso': ingreso.hora_ingreso if ingreso else '',
@@ -472,13 +500,15 @@ def guardar_parte_diario():
     hora_ingreso = data.get('hora_ingreso')
     hora_egreso = data.get('hora_egreso')
     notas = data.get('notas')
-    viatico_vivienda = bool(data.get('viatico_vivienda', False))
-    viatico_traslado = bool(data.get('viatico_traslado', False))
+    viatico_vivienda_nivel = normalizar_nivel_viatico(data.get('viatico_vivienda_nivel'))
+    viatico_traslado_nivel = normalizar_nivel_viatico(data.get('viatico_traslado_nivel'))
+    viatico_vivienda = viatico_vivienda_nivel != 'sin_viatico'
+    viatico_traslado = viatico_traslado_nivel != 'sin_viatico'
     valor_viatico_base = obtener_valor_viatico_base()
     valor_medio_viatico = round(valor_viatico_base * 0.5, 2)
-    clasificacion_viatico, monto_viatico = calcular_monto_viatico_por_checks(
-        viatico_vivienda,
-        viatico_traslado,
+    clasificacion_viatico, monto_viatico = calcular_monto_viatico_por_niveles(
+        viatico_vivienda_nivel,
+        viatico_traslado_nivel,
         valor_viatico_base,
         valor_medio_viatico
     )
@@ -497,6 +527,8 @@ def guardar_parte_diario():
         presentismo.descripcion = descripcion
         presentismo.viatico_vivienda = viatico_vivienda
         presentismo.viatico_traslado = viatico_traslado
+        presentismo.viatico_vivienda_nivel = viatico_vivienda_nivel
+        presentismo.viatico_traslado_nivel = viatico_traslado_nivel
         presentismo.viatico_clasificacion = clasificacion_viatico
         presentismo.viatico_valor_base_aplicado = valor_viatico_base
         presentismo.viatico_monto = monto_viatico
@@ -508,6 +540,8 @@ def guardar_parte_diario():
             tipo=tipo,
             viatico_vivienda=viatico_vivienda,
             viatico_traslado=viatico_traslado,
+            viatico_vivienda_nivel=viatico_vivienda_nivel,
+            viatico_traslado_nivel=viatico_traslado_nivel,
             viatico_clasificacion=clasificacion_viatico,
             viatico_valor_base_aplicado=valor_viatico_base,
             viatico_monto=monto_viatico,
@@ -716,6 +750,8 @@ def get_viaticos_resumen():
             'tipo': p.tipo,
             'viatico_vivienda': bool(p.viatico_vivienda),
             'viatico_traslado': bool(p.viatico_traslado),
+            'viatico_vivienda_nivel': normalizar_nivel_viatico(getattr(p, 'viatico_vivienda_nivel', 'sin_viatico')),
+            'viatico_traslado_nivel': normalizar_nivel_viatico(getattr(p, 'viatico_traslado_nivel', 'sin_viatico')),
             'horas_trabajadas': horas,
             'clasificacion_formula': clasificacion,
             'monto_viatico': monto_viatico
