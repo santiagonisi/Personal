@@ -32,7 +32,7 @@
             <input type="text" id="nombre" placeholder="Ej: Perez o Juan Perez" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
         </div>
         <button class="btn btn-edit" onclick="cargarResumenViaticos()">Cargar Resumen</button>
-        <button class="btn btn-success" onclick="descargarPdfViaticos()">Descargar PDF</button>
+        <button class="btn btn-success" onclick="descargarPdfListadoViaticos()">Descargar PDF</button>
     </div>
 
     <div id="resumen-viaticos" style="margin-bottom: 15px; color: #666;"></div>
@@ -42,26 +42,41 @@
             <thead>
                 <tr>
                     <th>Empleado</th>
-                    <th>Días registro</th>
-                    <th>Días presente</th>
-                    <th>Días Vivienda</th>
-                    <th>Días Traslado</th>
-                    <th>Días Entero</th>
-                    <th>Días Medio</th>
-                    <th>Días Sin Viático</th>
-                    <th>Horas totales</th>
                     <th>Sumatoria Viático</th>
                 </tr>
             </thead>
             <tbody id="viaticos-table">
-                <tr><td colspan="10" style="text-align: center;">Seleccione rango de fechas para analizar viáticos</td></tr>
+                <tr><td colspan="2" style="text-align: center;">Seleccione rango de fechas para analizar viáticos</td></tr>
             </tbody>
         </table>
     </div>
 </div>
 
+<div id="viaticos-modal" class="viaticos-modal" aria-hidden="true">
+    <div class="viaticos-modal-backdrop" onclick="cerrarModalViaticos()"></div>
+    <div class="viaticos-modal-content" role="dialog" aria-modal="true" aria-labelledby="viaticos-modal-title">
+        <div class="viaticos-modal-header">
+            <div>
+                <h3 id="viaticos-modal-title">Detalle de viáticos</h3>
+                <div id="viaticos-modal-subtitle" class="viaticos-modal-subtitle"></div>
+            </div>
+            <button type="button" class="viaticos-modal-close" onclick="cerrarModalViaticos()">×</button>
+        </div>
+
+        <div id="viaticos-modal-body" class="viaticos-modal-body">
+            <p>Seleccioná un empleado para ver su información.</p>
+        </div>
+
+        <div class="viaticos-modal-actions">
+            <button type="button" class="btn btn-success" onclick="descargarPdfEmpleadoSeleccionado()">Descargar PDF de este empleado</button>
+            <button type="button" class="btn" onclick="cerrarModalViaticos()">Cerrar</button>
+        </div>
+    </div>
+</div>
+
 <script>
 let viaticosActuales = [];
+let empleadoSeleccionado = null;
 let configuracionViaticos = {
     valor_viatico_base: 0,
     valor_medio_viatico: 0
@@ -145,25 +160,21 @@ async function cargarResumenViaticos() {
         const resumen = document.getElementById('resumen-viaticos');
 
         table.innerHTML = '';
+        empleadoSeleccionado = null;
+        cerrarModalViaticos();
 
         if (viaticosActuales.length === 0) {
-            table.innerHTML = '<tr><td colspan="10" style="text-align: center;">No hay datos de parte diario en ese rango</td></tr>';
+            table.innerHTML = '<tr><td colspan="2" style="text-align: center;">No hay datos de parte diario en ese rango</td></tr>';
             resumen.textContent = 'Sin información para calcular viáticos';
             return;
         }
 
         viaticosActuales.forEach(item => {
             const tr = document.createElement('tr');
+            tr.className = 'viaticos-row';
+            tr.onclick = () => abrirModalViaticos(item.personal_id);
             tr.innerHTML = `
-                <td>${item.apellido}, ${item.nombre}</td>
-                <td>${item.dias_con_registro}</td>
-                <td>${item.dias_presente}</td>
-                <td>${item.dias_viatico_vivienda}</td>
-                <td>${item.dias_viatico_traslado}</td>
-                <td>${item.dias_viatico_entero || 0}</td>
-                <td>${item.dias_viatico_medio || 0}</td>
-                <td>${item.dias_sin_viatico || 0}</td>
-                <td>${item.horas_totales || 0}</td>
+                <td><button type="button" class="viaticos-link">${item.apellido}, ${item.nombre}</button></td>
                 <td>${estadoFormula(item)}</td>
             `;
             table.appendChild(tr);
@@ -184,7 +195,74 @@ async function cargarResumenViaticos() {
     }
 }
 
-function descargarPdfViaticos() {
+function obtenerEmpleadoSeleccionado() {
+    if (!empleadoSeleccionado) {
+        return null;
+    }
+
+    return viaticosActuales.find(item => item.personal_id === empleadoSeleccionado) || null;
+}
+
+function abrirModalViaticos(personalId) {
+    const empleado = viaticosActuales.find(item => item.personal_id === personalId);
+    if (!empleado) {
+        showNotification('No se encontró la información del empleado seleccionado', 'error');
+        return;
+    }
+
+    empleadoSeleccionado = personalId;
+
+    const modal = document.getElementById('viaticos-modal');
+    const subtitle = document.getElementById('viaticos-modal-subtitle');
+    const body = document.getElementById('viaticos-modal-body');
+    const fechaDesde = document.getElementById('fecha_desde').value;
+    const fechaHasta = document.getElementById('fecha_hasta').value;
+
+    subtitle.textContent = `${empleado.apellido}, ${empleado.nombre}`;
+    body.innerHTML = `
+        <div class="viaticos-modal-grid">
+            <div class="viaticos-modal-card">
+                <span class="viaticos-modal-label">Período</span>
+                <strong>${formatDate(fechaDesde)} a ${formatDate(fechaHasta)}</strong>
+            </div>
+            <div class="viaticos-modal-card">
+                <span class="viaticos-modal-label">Total viático</span>
+                <strong>${formatMoney(empleado.total_viatico || 0)}</strong>
+            </div>
+            <div class="viaticos-modal-card">
+                <span class="viaticos-modal-label">Días con viático entero</span>
+                <strong>${empleado.dias_viatico_entero || 0}</strong>
+            </div>
+            <div class="viaticos-modal-card">
+                <span class="viaticos-modal-label">Días con medio viático</span>
+                <strong>${empleado.dias_viatico_medio || 0}</strong>
+            </div>
+            <div class="viaticos-modal-card">
+                <span class="viaticos-modal-label">Días sin viático</span>
+                <strong>${empleado.dias_sin_viatico || 0}</strong>
+            </div>
+            <div class="viaticos-modal-card">
+                <span class="viaticos-modal-label">Horas trabajadas</span>
+                <strong>${empleado.horas_totales || 0}</strong>
+            </div>
+        </div>
+        <p class="viaticos-modal-note">Este modal queda como base del detalle individual y también como referencia del PDF a descargar para este empleado.</p>
+    `;
+
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+}
+
+function cerrarModalViaticos() {
+    const modal = document.getElementById('viaticos-modal');
+    if (!modal) {
+        return;
+    }
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+}
+
+function descargarPdfListadoViaticos() {
     const fechaDesde = document.getElementById('fecha_desde').value;
     const fechaHasta = document.getElementById('fecha_hasta').value;
     const nombre = document.getElementById('nombre').value.trim();
@@ -206,6 +284,30 @@ function descargarPdfViaticos() {
     window.location.href = `/api/viaticos/resumen.pdf?${params.toString()}`;
 }
 
+function descargarPdfEmpleadoSeleccionado() {
+    const fechaDesde = document.getElementById('fecha_desde').value;
+    const fechaHasta = document.getElementById('fecha_hasta').value;
+    const empleado = obtenerEmpleadoSeleccionado();
+
+    if (!fechaDesde || !fechaHasta) {
+        showNotification('Debe completar fecha desde y fecha hasta', 'error');
+        return;
+    }
+
+    if (!empleado) {
+        showNotification('Seleccione un empleado para descargar su PDF', 'error');
+        return;
+    }
+
+    const params = new URLSearchParams({
+        fecha_desde: fechaDesde,
+        fecha_hasta: fechaHasta,
+        personal_id: empleado.personal_id
+    });
+
+    window.location.href = `/api/viaticos/resumen.pdf?${params.toString()}`;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     const hoy = new Date();
     const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
@@ -214,6 +316,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('fecha_hasta').value = hoy.toISOString().split('T')[0];
 
     document.getElementById('valor_viatico_base').addEventListener('input', actualizarMedioViatico);
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            cerrarModalViaticos();
+        }
+    });
     await cargarConfiguracionViaticos();
 });
 </script>

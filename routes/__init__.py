@@ -193,7 +193,7 @@ def obtener_nivel_registro(presentismo, campo_nivel, campo_flag):
         return nivel
     return 'medio' if bool(getattr(presentismo, campo_flag, False)) else 'sin_viatico'
 
-def construir_resumen_viaticos(fecha_desde, fecha_hasta, nombre=''):
+def construir_resumen_viaticos(fecha_desde, fecha_hasta, nombre='', personal_id=None):
     valor_viatico_base = obtener_valor_viatico_base()
     valor_medio_viatico = round(valor_viatico_base * 0.5, 2)
 
@@ -336,6 +336,8 @@ def construir_resumen_viaticos(fecha_desde, fecha_hasta, nombre=''):
         })
 
     data = list(resumen.values())
+    if personal_id is not None:
+        data = [item for item in data if item.get('personal_id') == personal_id]
     if nombre:
         data = [
             item for item in data
@@ -620,7 +622,9 @@ def get_parte_diario():
     if not obra_id:
         return jsonify({'error': 'obra_id es requerido'}), 400
 
-    personal_obra = Personal.query.filter_by(lugar_trabajo='obra').order_by(Personal.apellido.asc(), Personal.nombre.asc()).all()
+    personal_obra = Personal.query.filter(
+        Personal.lugar_trabajo.in_(['obra', 'planta'])
+    ).order_by(Personal.apellido.asc(), Personal.nombre.asc()).all()
     presentismos = Presentismo.query.filter_by(obra_id=obra_id, fecha=fecha).all()
     ingresos_egresos = IngresoEgreso.query.filter_by(obra_id=obra_id, fecha=fecha).all()
 
@@ -638,6 +642,7 @@ def get_parte_diario():
             'nombre': persona.nombre,
             'apellido': persona.apellido,
             'dni': persona.dni,
+            'lugar_trabajo': persona.lugar_trabajo,
             'puesto': None,
             'presentismo_id': presentismo.id if presentismo else None,
             'tipo': tipo,
@@ -844,6 +849,7 @@ def get_viaticos_resumen():
     fecha_desde = request.args.get('fecha_desde')
     fecha_hasta = request.args.get('fecha_hasta')
     nombre = (request.args.get('nombre') or '').strip().lower()
+    personal_id = request.args.get('personal_id', type=int)
 
     if not fecha_desde or not fecha_hasta:
         return jsonify({'error': 'fecha_desde y fecha_hasta son requeridos'}), 400
@@ -851,7 +857,7 @@ def get_viaticos_resumen():
     if fecha_desde > fecha_hasta:
         return jsonify({'error': 'fecha_desde no puede ser mayor a fecha_hasta'}), 400
 
-    return jsonify(construir_resumen_viaticos(fecha_desde, fecha_hasta, nombre))
+    return jsonify(construir_resumen_viaticos(fecha_desde, fecha_hasta, nombre, personal_id))
 
 
 @main_bp.route('/api/viaticos/resumen.pdf', methods=['GET'])
@@ -866,6 +872,7 @@ def get_viaticos_resumen_pdf():
     fecha_desde = request.args.get('fecha_desde')
     fecha_hasta = request.args.get('fecha_hasta')
     nombre = (request.args.get('nombre') or '').strip().lower()
+    personal_id = request.args.get('personal_id', type=int)
 
     if not fecha_desde or not fecha_hasta:
         return jsonify({'error': 'fecha_desde y fecha_hasta son requeridos'}), 400
@@ -873,7 +880,7 @@ def get_viaticos_resumen_pdf():
     if fecha_desde > fecha_hasta:
         return jsonify({'error': 'fecha_desde no puede ser mayor a fecha_hasta'}), 400
 
-    resumen = construir_resumen_viaticos(fecha_desde, fecha_hasta, nombre)
+    resumen = construir_resumen_viaticos(fecha_desde, fecha_hasta, nombre, personal_id)
     valor_viatico_base = resumen['valor_viatico_base']
     data = resumen['items']
 
