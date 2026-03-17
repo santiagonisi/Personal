@@ -23,13 +23,13 @@
 
     <div id="resumen" style="margin-bottom: 15px; color: #666;"></div>
 
-    <div style="overflow-x: auto;">
-        <table>
+    <div class="parte-diario-table-wrapper" style="overflow-x: auto;">
+        <table class="parte-diario-table">
             <thead>
                 <tr>
                     <th>Empleado</th>
+                    <th>Lugar</th>
                     <th>DNI</th>
-                    <th>Puesto</th>
                     <th>En esta obra</th>
                     <th>Presentismo</th>
                     <th>Ingreso</th>
@@ -100,11 +100,17 @@ function crearFilaObrero(item, obraId, fecha) {
     const horasTexto = item.horas_trabajadas !== null && item.horas_trabajadas !== undefined
         ? `${item.horas_trabajadas} hs`
         : '-';
+    const lugarTrabajo = (item.lugar_trabajo || '').toLowerCase();
+    const lugarLabel = lugarTrabajo === 'planta'
+        ? 'Planta'
+        : lugarTrabajo === 'obra'
+            ? 'Obra'
+            : (item.lugar_trabajo || '-');
 
     tr.innerHTML = `
         <td>${item.nombre} ${item.apellido}</td>
+        <td>${lugarLabel}</td>
         <td>${item.dni || '-'}</td>
-        <td>${item.puesto || '-'}</td>
         <td style="text-align: center;">
             <input type="checkbox" class="en-obra" ${item.en_obra ? 'checked' : ''}>
         </td>
@@ -202,7 +208,7 @@ async function cargarParteDiario() {
         table.innerHTML = '';
 
         if (!data.filas || data.filas.length === 0) {
-            table.innerHTML = '<tr><td colspan="11" style="text-align: center;">No hay empleados con lugar de trabajo obra</td></tr>';
+            table.innerHTML = '<tr><td colspan="11" style="text-align: center;">No hay empleados con lugar de trabajo obra o planta</td></tr>';
             resumen.textContent = 'Sin datos para mostrar';
             return;
         }
@@ -211,7 +217,7 @@ async function cargarParteDiario() {
             table.appendChild(crearFilaObrero(item, obraId, data.fecha));
         });
 
-        resumen.textContent = `Empleados de obra: ${data.total_obreros} | Fecha del parte: ${formatDate(data.fecha)}`;
+        resumen.textContent = `Empleados de obra y planta: ${data.total_obreros} | Fecha del parte: ${formatDate(data.fecha)}`;
     } catch (error) {
         console.error('Error cargando parte diario:', error);
         showNotification('Error al cargar parte diario', 'error');
