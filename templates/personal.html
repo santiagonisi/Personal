@@ -164,8 +164,8 @@ async function loadPersonal() {
                 <td>${p.estado || 'Activo'}</td>
                 <td>
                     {% if current_user.es_admin() %}
-                    <button class="btn btn-small btn-edit" onclick="editPersonal(${p.id})" title="Editar">✏️</button>
-                    <button class="btn btn-small btn-delete" onclick="deletePersonal(${p.id})" title="Eliminar">🗑️</button>
+                    <button class="btn btn-small btn-accion-tabla btn-edit" onclick="editPersonal(${p.id})" title="Editar">✏️</button>
+                    <button class="btn btn-small btn-accion-tabla btn-delete" onclick="deletePersonal(${p.id})" title="Eliminar">🗑️</button>
                     {% else %}
                     -
                     {% endif %}

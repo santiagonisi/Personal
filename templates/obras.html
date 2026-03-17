@@ -148,8 +148,8 @@ async function loadObras() {
                 <td>${o.estado || 'Activa'}</td>
                 <td>
                     {% if current_user.es_admin() %}
-                    <button class="btn btn-small btn-edit" onclick="editObra(${o.id})" title="Editar">✏️</button>
-                    <button class="btn btn-small btn-delete" onclick="deleteObra(${o.id})" title="Eliminar">🗑️</button>
+                    <button class="btn btn-small btn-accion-tabla btn-edit" onclick="editObra(${o.id})" title="Editar">✏️</button>
+                    <button class="btn btn-small btn-accion-tabla btn-delete" onclick="deleteObra(${o.id})" title="Eliminar">🗑️</button>
                     {% else %}
                     -
                     {% endif %}
