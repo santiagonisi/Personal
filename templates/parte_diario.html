@@ -29,7 +29,6 @@
                 <tr>
                     <th>Empleado</th>
                     <th>Lugar</th>
-                    <th>DNI</th>
                     <th>En esta obra</th>
                     <th>Presentismo</th>
                     <th>Ingreso</th>
@@ -41,7 +40,7 @@
                 </tr>
             </thead>
             <tbody id="parte-diario-table">
-                <tr><td colspan="11" style="text-align: center;">Seleccione obra y fecha para cargar el parte diario</td></tr>
+                <tr><td colspan="10" style="text-align: center;">Seleccione obra y fecha para cargar el parte diario</td></tr>
             </tbody>
         </table>
     </div>
@@ -110,7 +109,6 @@ function crearFilaObrero(item, obraId, fecha) {
     tr.innerHTML = `
         <td>${item.nombre} ${item.apellido}</td>
         <td>${lugarLabel}</td>
-        <td>${item.dni || '-'}</td>
         <td style="text-align: center;">
             <input type="checkbox" class="en-obra" ${item.en_obra ? 'checked' : ''}>
         </td>
@@ -208,7 +206,7 @@ async function cargarParteDiario() {
         table.innerHTML = '';
 
         if (!data.filas || data.filas.length === 0) {
-            table.innerHTML = '<tr><td colspan="11" style="text-align: center;">No hay empleados con lugar de trabajo obra o planta</td></tr>';
+            table.innerHTML = '<tr><td colspan="10" style="text-align: center;">No hay empleados con lugar de trabajo obra o planta</td></tr>';
             resumen.textContent = 'Sin datos para mostrar';
             return;
         }
