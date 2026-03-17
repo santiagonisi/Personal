@@ -107,7 +107,7 @@ function renderHistoricoRows(data) {
             <td>${item.presentes || 0}</td>
             <td>${item.no_presentes || 0}</td>
             <td>
-                <button class="btn btn-small btn-edit" onclick="openJustificacionesModal(${item.personal_id})">Ver</button>
+                <button class="btn btn-small btn-accion-tabla btn-edit" onclick="openJustificacionesModal(${item.personal_id})">Ver</button>
             </td>
         `;
         table.appendChild(row);
