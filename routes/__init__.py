@@ -179,6 +179,181 @@ def actualizar_estados_obras_por_fecha():
     if cambios:
         db.session.commit()
 
+def combinar_niveles_viatico(nivel_actual, nuevo_nivel):
+    ranking = {'sin_viatico': 0, 'medio': 1, 'entero': 2}
+    nivel_actual = normalizar_nivel_viatico(nivel_actual)
+    nuevo_nivel = normalizar_nivel_viatico(nuevo_nivel)
+    if ranking[nuevo_nivel] > ranking[nivel_actual]:
+        return nuevo_nivel
+    return nivel_actual
+
+def obtener_nivel_registro(presentismo, campo_nivel, campo_flag):
+    nivel = normalizar_nivel_viatico(getattr(presentismo, campo_nivel, None))
+    if nivel != 'sin_viatico':
+        return nivel
+    return 'medio' if bool(getattr(presentismo, campo_flag, False)) else 'sin_viatico'
+
+def construir_resumen_viaticos(fecha_desde, fecha_hasta, nombre=''):
+    valor_viatico_base = obtener_valor_viatico_base()
+    valor_medio_viatico = round(valor_viatico_base * 0.5, 2)
+
+    presentismos = Presentismo.query.filter(
+        Presentismo.fecha >= fecha_desde,
+        Presentismo.fecha <= fecha_hasta
+    ).order_by(Presentismo.fecha.asc(), Presentismo.personal_id.asc()).all()
+
+    ingresos = IngresoEgreso.query.filter(
+        IngresoEgreso.fecha >= fecha_desde,
+        IngresoEgreso.fecha <= fecha_hasta
+    ).all()
+
+    horas_por_dia = {}
+    for ingreso in ingresos:
+        key = (ingreso.personal_id, ingreso.fecha)
+        horas_actuales = horas_por_dia.get(key, 0)
+        horas_por_dia[key] = round(horas_actuales + float(ingreso.horas_trabajadas or 0), 2)
+
+    registros_por_dia = {}
+    for presentismo in presentismos:
+        key = (presentismo.personal_id, presentismo.fecha)
+        registro = registros_por_dia.get(key)
+        if registro is None:
+            registro = {
+                'personal_id': presentismo.personal_id,
+                'nombre': presentismo.personal.nombre if presentismo.personal else '',
+                'apellido': presentismo.personal.apellido if presentismo.personal else '',
+                'fecha': presentismo.fecha,
+                'obras': set(),
+                'tipos': set(),
+                'presente': False,
+                'viatico_vivienda': False,
+                'viatico_traslado': False,
+                'viatico_vivienda_nivel': 'sin_viatico',
+                'viatico_traslado_nivel': 'sin_viatico',
+                'valor_viatico_referencia': 0,
+            }
+            registros_por_dia[key] = registro
+
+        if presentismo.obra and presentismo.obra.nombre:
+            registro['obras'].add(presentismo.obra.nombre)
+        registro['tipos'].add(presentismo.tipo or '')
+        registro['presente'] = registro['presente'] or presentismo.tipo == 'presente'
+        registro['viatico_vivienda'] = registro['viatico_vivienda'] or bool(presentismo.viatico_vivienda)
+        registro['viatico_traslado'] = registro['viatico_traslado'] or bool(presentismo.viatico_traslado)
+        registro['viatico_vivienda_nivel'] = combinar_niveles_viatico(
+            registro['viatico_vivienda_nivel'],
+            obtener_nivel_registro(presentismo, 'viatico_vivienda_nivel', 'viatico_vivienda')
+        )
+        registro['viatico_traslado_nivel'] = combinar_niveles_viatico(
+            registro['viatico_traslado_nivel'],
+            obtener_nivel_registro(presentismo, 'viatico_traslado_nivel', 'viatico_traslado')
+        )
+
+        valor_base_registro = presentismo.viatico_valor_base_aplicado
+        if valor_base_registro is None:
+            valor_base_registro = valor_viatico_base
+        registro['valor_viatico_referencia'] = round(
+            max(float(registro['valor_viatico_referencia'] or 0), float(valor_base_registro or 0)),
+            2
+        )
+
+    resumen = {}
+    dias_ordenados = sorted(
+        registros_por_dia.values(),
+        key=lambda item: ((item.get('apellido') or ''), (item.get('nombre') or ''), (item.get('fecha') or ''))
+    )
+
+    for registro in dias_ordenados:
+        key = registro['personal_id']
+        if key not in resumen:
+            resumen[key] = {
+                'personal_id': registro['personal_id'],
+                'nombre': registro['nombre'],
+                'apellido': registro['apellido'],
+                'dias_con_registro': 0,
+                'dias_presente': 0,
+                'dias_viatico_vivienda': 0,
+                'dias_viatico_traslado': 0,
+                'dias_viatico_entero': 0,
+                'dias_viatico_medio': 0,
+                'dias_sin_viatico': 0,
+                'horas_totales': 0,
+                'total_viatico': 0,
+                'fecha_ultimo_registro': '',
+                'valor_viatico_referencia': 0,
+                'detalles': []
+            }
+
+        item = resumen[key]
+        item['dias_con_registro'] += 1
+        if registro['presente']:
+            item['dias_presente'] += 1
+        if registro['viatico_vivienda']:
+            item['dias_viatico_vivienda'] += 1
+        if registro['viatico_traslado']:
+            item['dias_viatico_traslado'] += 1
+
+        valor_base_referencia = round(float(registro['valor_viatico_referencia'] or valor_viatico_base), 2)
+        valor_medio_referencia = round(valor_base_referencia * 0.5, 2)
+        clasificacion, monto_viatico = calcular_monto_viatico_por_niveles(
+            registro['viatico_vivienda_nivel'],
+            registro['viatico_traslado_nivel'],
+            valor_base_referencia,
+            valor_medio_referencia
+        )
+
+        if clasificacion == 'entero':
+            item['dias_viatico_entero'] += 1
+        elif clasificacion == 'medio':
+            item['dias_viatico_medio'] += 1
+        else:
+            item['dias_sin_viatico'] += 1
+
+        horas = horas_por_dia.get((registro['personal_id'], registro['fecha']), 0)
+        item['horas_totales'] = round(item['horas_totales'] + horas, 2)
+        item['total_viatico'] = round(item['total_viatico'] + monto_viatico, 2)
+
+        if registro['fecha'] and registro['fecha'] >= (item['fecha_ultimo_registro'] or ''):
+            item['fecha_ultimo_registro'] = registro['fecha']
+            item['valor_viatico_referencia'] = valor_base_referencia
+
+        obras = sorted(obra for obra in registro['obras'] if obra)
+        tipos = sorted(tipo for tipo in registro['tipos'] if tipo)
+        item['detalles'].append({
+            'fecha': registro['fecha'],
+            'obra_nombre': ' / '.join(obras) if obras else 'Sin obra',
+            'obras': obras,
+            'tipo': ' / '.join(tipos),
+            'tipos': tipos,
+            'viatico_vivienda': registro['viatico_vivienda'],
+            'viatico_traslado': registro['viatico_traslado'],
+            'viatico_vivienda_nivel': registro['viatico_vivienda_nivel'],
+            'viatico_traslado_nivel': registro['viatico_traslado_nivel'],
+            'horas_trabajadas': horas,
+            'clasificacion_formula': clasificacion,
+            'monto_viatico': monto_viatico,
+            'valor_viatico_referencia': valor_base_referencia
+        })
+
+    data = list(resumen.values())
+    if nombre:
+        data = [
+            item for item in data
+            if nombre in f"{(item.get('nombre') or '').lower()} {(item.get('apellido') or '').lower()}"
+        ]
+
+    data.sort(key=lambda item: ((item.get('apellido') or ''), (item.get('nombre') or '')))
+
+    return {
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta,
+        'nombre': nombre,
+        'valor_viatico_base': valor_viatico_base,
+        'valor_medio_viatico': valor_medio_viatico,
+        'total_empleados': len(data),
+        'items': data
+    }
+
 main_bp = Blueprint('main', __name__)
 
 @main_bp.route('/')
@@ -676,106 +851,7 @@ def get_viaticos_resumen():
     if fecha_desde > fecha_hasta:
         return jsonify({'error': 'fecha_desde no puede ser mayor a fecha_hasta'}), 400
 
-    valor_viatico_base = obtener_valor_viatico_base()
-    valor_medio_viatico = round(valor_viatico_base * 0.5, 2)
-
-    presentismos_query = Presentismo.query.filter(
-        Presentismo.fecha >= fecha_desde,
-        Presentismo.fecha <= fecha_hasta
-    )
-
-    ingresos_query = IngresoEgreso.query.filter(
-        IngresoEgreso.fecha >= fecha_desde,
-        IngresoEgreso.fecha <= fecha_hasta
-    )
-
-    presentismos = presentismos_query.all()
-    ingresos = ingresos_query.all()
-
-    ingresos_map = {}
-    for ingreso in ingresos:
-        key = (ingreso.personal_id, ingreso.obra_id, ingreso.fecha)
-        ingresos_map[key] = ingreso
-
-    resumen = {}
-    for p in presentismos:
-        key = p.personal_id
-        if key not in resumen:
-            resumen[key] = {
-                'personal_id': p.personal_id,
-                'nombre': p.personal.nombre if p.personal else '',
-                'apellido': p.personal.apellido if p.personal else '',
-                'dias_con_registro': 0,
-                'dias_presente': 0,
-                'dias_viatico_vivienda': 0,
-                'dias_viatico_traslado': 0,
-                'dias_viatico_entero': 0,
-                'dias_viatico_medio': 0,
-                'dias_sin_viatico': 0,
-                'horas_totales': 0,
-                'total_viatico': 0,
-                'detalles': []
-            }
-
-        item = resumen[key]
-        item['dias_con_registro'] += 1
-        if p.tipo == 'presente':
-            item['dias_presente'] += 1
-        if p.viatico_vivienda:
-            item['dias_viatico_vivienda'] += 1
-        if p.viatico_traslado:
-            item['dias_viatico_traslado'] += 1
-
-        clasificacion, monto_viatico = obtener_viatico_congelado_o_calculado(
-            p,
-            valor_viatico_base,
-            valor_medio_viatico
-        )
-        if clasificacion == 'entero':
-            item['dias_viatico_entero'] += 1
-        elif clasificacion == 'medio':
-            item['dias_viatico_medio'] += 1
-        else:
-            item['dias_sin_viatico'] += 1
-        item['total_viatico'] = round(item['total_viatico'] + monto_viatico, 2)
-
-        ingreso = ingresos_map.get((p.personal_id, p.obra_id, p.fecha))
-        horas = ingreso.horas_trabajadas if ingreso and ingreso.horas_trabajadas is not None else 0
-        item['horas_totales'] = round(item['horas_totales'] + horas, 2)
-
-        item['detalles'].append({
-            'fecha': p.fecha,
-            'obra_id': p.obra_id,
-            'obra_nombre': p.obra.nombre if p.obra else 'Sin obra',
-            'tipo': p.tipo,
-            'viatico_vivienda': bool(p.viatico_vivienda),
-            'viatico_traslado': bool(p.viatico_traslado),
-            'viatico_vivienda_nivel': normalizar_nivel_viatico(getattr(p, 'viatico_vivienda_nivel', 'sin_viatico')),
-            'viatico_traslado_nivel': normalizar_nivel_viatico(getattr(p, 'viatico_traslado_nivel', 'sin_viatico')),
-            'horas_trabajadas': horas,
-            'clasificacion_formula': clasificacion,
-            'monto_viatico': monto_viatico
-        })
-
-    data = list(resumen.values())
-
-    if nombre:
-        data = [
-            item for item in data
-            if nombre in f"{(item.get('nombre') or '').lower()} {(item.get('apellido') or '').lower()}"
-        ]
-
-    data.sort(key=lambda x: (x.get('apellido') or '', x.get('nombre') or ''))
-
-    return jsonify({
-        'fecha_desde': fecha_desde,
-        'fecha_hasta': fecha_hasta,
-        'nombre': nombre,
-        'valor_viatico_base': valor_viatico_base,
-        'valor_medio_viatico': valor_medio_viatico,
-        'total_empleados': len(data),
-        'items': data
-    })
+    return jsonify(construir_resumen_viaticos(fecha_desde, fecha_hasta, nombre))
 
 
 @main_bp.route('/api/viaticos/resumen.pdf', methods=['GET'])
@@ -797,86 +873,9 @@ def get_viaticos_resumen_pdf():
     if fecha_desde > fecha_hasta:
         return jsonify({'error': 'fecha_desde no puede ser mayor a fecha_hasta'}), 400
 
-    valor_viatico_base = obtener_valor_viatico_base()
-    valor_medio_viatico = round(valor_viatico_base * 0.5, 2)
-
-    presentismos_query = Presentismo.query.filter(
-        Presentismo.fecha >= fecha_desde,
-        Presentismo.fecha <= fecha_hasta
-    )
-
-    ingresos_query = IngresoEgreso.query.filter(
-        IngresoEgreso.fecha >= fecha_desde,
-        IngresoEgreso.fecha <= fecha_hasta
-    )
-
-    presentismos = presentismos_query.all()
-    ingresos = ingresos_query.all()
-
-    ingresos_map = {}
-    for ingreso in ingresos:
-        key = (ingreso.personal_id, ingreso.obra_id, ingreso.fecha)
-        ingresos_map[key] = ingreso
-
-    resumen = {}
-    for p in presentismos:
-        key = p.personal_id
-        if key not in resumen:
-            resumen[key] = {
-                'personal_id': p.personal_id,
-                'nombre': p.personal.nombre if p.personal else '',
-                'apellido': p.personal.apellido if p.personal else '',
-                'dias_con_registro': 0,
-                'dias_presente': 0,
-                'dias_viatico_vivienda': 0,
-                'dias_viatico_traslado': 0,
-                'dias_viatico_entero': 0,
-                'dias_viatico_medio': 0,
-                'dias_sin_viatico': 0,
-                'horas_totales': 0,
-                'total_viatico': 0,
-                'fecha_ultimo_registro': '',
-                'valor_viatico_referencia': 0,
-            }
-
-        item = resumen[key]
-        item['dias_con_registro'] += 1
-        if p.tipo == 'presente':
-            item['dias_presente'] += 1
-        if p.viatico_vivienda:
-            item['dias_viatico_vivienda'] += 1
-        if p.viatico_traslado:
-            item['dias_viatico_traslado'] += 1
-
-        clasificacion, monto_viatico = obtener_viatico_congelado_o_calculado(
-            p,
-            valor_viatico_base,
-            valor_medio_viatico
-        )
-        if clasificacion == 'entero':
-            item['dias_viatico_entero'] += 1
-        elif clasificacion == 'medio':
-            item['dias_viatico_medio'] += 1
-        else:
-            item['dias_sin_viatico'] += 1
-        item['total_viatico'] = round(item['total_viatico'] + monto_viatico, 2)
-
-        ingreso = ingresos_map.get((p.personal_id, p.obra_id, p.fecha))
-        horas = ingreso.horas_trabajadas if ingreso and ingreso.horas_trabajadas is not None else 0
-        item['horas_totales'] = round(item['horas_totales'] + horas, 2)
-
-        valor_base_registro = p.viatico_valor_base_aplicado if p.viatico_valor_base_aplicado is not None else valor_viatico_base
-        if p.fecha and p.fecha >= (item['fecha_ultimo_registro'] or ''):
-            item['fecha_ultimo_registro'] = p.fecha
-            item['valor_viatico_referencia'] = round(float(valor_base_registro or 0), 2)
-
-    data = list(resumen.values())
-    if nombre:
-        data = [
-            item for item in data
-            if nombre in f"{(item.get('nombre') or '').lower()} {(item.get('apellido') or '').lower()}"
-        ]
-    data.sort(key=lambda x: (x.get('apellido') or '', x.get('nombre') or ''))
+    resumen = construir_resumen_viaticos(fecha_desde, fecha_hasta, nombre)
+    valor_viatico_base = resumen['valor_viatico_base']
+    data = resumen['items']
 
     if len(data) == 0:
         return jsonify({'error': 'No hay datos para exportar en ese rango'}), 404
