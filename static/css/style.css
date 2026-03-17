@@ -319,6 +319,123 @@ table {
     overflow: hidden;
 }
 
+.viaticos-row {
+    cursor: pointer;
+}
+
+.viaticos-row:hover {
+    background: #f8fafc;
+}
+
+.viaticos-link {
+    border: 0;
+    background: transparent;
+    color: #1f4f7a;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+    text-align: left;
+}
+
+.viaticos-link:hover {
+    text-decoration: underline;
+}
+
+.viaticos-modal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.viaticos-modal.is-open {
+    display: flex;
+}
+
+.viaticos-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+}
+
+.viaticos-modal-content {
+    position: relative;
+    width: min(720px, calc(100vw - 32px));
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    background: #ffffff;
+    border-radius: 14px;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+    padding: 24px;
+}
+
+.viaticos-modal-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.viaticos-modal-header h3 {
+    margin: 0;
+}
+
+.viaticos-modal-subtitle {
+    margin-top: 4px;
+    color: #64748b;
+    font-size: 14px;
+}
+
+.viaticos-modal-close {
+    border: 0;
+    background: transparent;
+    font-size: 28px;
+    line-height: 1;
+    color: #64748b;
+    cursor: pointer;
+}
+
+.viaticos-modal-body {
+    margin-bottom: 20px;
+}
+
+.viaticos-modal-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+}
+
+.viaticos-modal-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fafc;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.viaticos-modal-label {
+    color: #64748b;
+    font-size: 13px;
+}
+
+.viaticos-modal-note {
+    margin-top: 16px;
+    color: #475569;
+}
+
+.viaticos-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
 th {
     background: #f0f0f0;
     color: #666;
@@ -342,6 +459,50 @@ tr:hover {
 
 tr:last-child td {
     border-bottom: none;
+}
+
+.parte-diario-table {
+    min-width: 1120px;
+}
+
+.parte-diario-table th {
+    padding: 11px 10px;
+    font-size: 13px;
+}
+
+.parte-diario-table td {
+    padding: 9px 10px;
+    font-size: 13px;
+}
+
+.parte-diario-table select,
+.parte-diario-table input[type="time"] {
+    min-width: 0;
+    padding: 6px 8px;
+    font-size: 13px;
+}
+
+.parte-diario-table .tipo {
+    width: 150px !important;
+}
+
+.parte-diario-table .viatico-vivienda,
+.parte-diario-table .viatico-traslado {
+    width: 118px !important;
+}
+
+.parte-diario-table .hora-ingreso,
+.parte-diario-table .hora-egreso {
+    width: 96px;
+}
+
+.parte-diario-table .btn-small {
+    padding: 8px 12px;
+    font-size: 12px;
+}
+
+.parte-diario-table-wrapper {
+    border-radius: 8px;
 }
 
 .form-group {
@@ -478,6 +639,13 @@ textarea {
 .btn-small {
     padding: 11px 22px;
     font-size: 14px;
+}
+
+.btn-accion-tabla {
+    padding: 6px 10px;
+    font-size: 12px;
+    line-height: 1;
+    border-radius: 6px;
 }
 
 .btn-group {
@@ -627,6 +795,35 @@ textarea {
     .admin-tools-inline {
         justify-content: center;
     }
+
+    .parte-diario-table {
+        min-width: 980px;
+    }
+
+    .parte-diario-table th,
+    .parte-diario-table td {
+        padding: 7px 8px;
+        font-size: 12px;
+    }
+
+    .parte-diario-table .tipo {
+        width: 140px !important;
+    }
+
+    .parte-diario-table .viatico-vivienda,
+    .parte-diario-table .viatico-traslado {
+        width: 110px !important;
+    }
+
+    .parte-diario-table .hora-ingreso,
+    .parte-diario-table .hora-egreso {
+        width: 88px;
+    }
+
+    .parte-diario-table .btn-small {
+        padding: 7px 10px;
+        width: auto;
+    }
 }
 
 @media (max-width: 480px) {
@@ -660,6 +857,41 @@ textarea {
 
     input, select, textarea {
         font-size: 16px;
+    }
+
+    .parte-diario-table {
+        min-width: 920px;
+    }
+
+    .parte-diario-table th,
+    .parte-diario-table td {
+        padding: 6px 7px;
+        font-size: 11px;
+    }
+
+    .parte-diario-table select,
+    .parte-diario-table input[type="time"] {
+        font-size: 12px;
+        padding: 5px 6px;
+    }
+
+    .parte-diario-table .tipo {
+        width: 128px !important;
+    }
+
+    .parte-diario-table .viatico-vivienda,
+    .parte-diario-table .viatico-traslado {
+        width: 100px !important;
+    }
+
+    .parte-diario-table .hora-ingreso,
+    .parte-diario-table .hora-egreso {
+        width: 82px;
+    }
+
+    .parte-diario-table .btn-small {
+        padding: 6px 8px;
+        font-size: 11px;
     }
 }
 
