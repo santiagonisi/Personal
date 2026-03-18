@@ -1055,5 +1055,114 @@ def get_viaticos_resumen_pdf():
     return response
 
 
+@main_bp.route('/api/viaticos/resumen.xlsx', methods=['GET'])
+@admin_required
+def get_viaticos_resumen_excel():
+    try:
+        from openpyxl import Workbook
+    except ImportError:
+        return jsonify({'error': 'Falta dependencia openpyxl para exportar Excel'}), 500
+
+    fecha_desde = request.args.get('fecha_desde')
+    fecha_hasta = request.args.get('fecha_hasta')
+    nombre = (request.args.get('nombre') or '').strip().lower()
+    personal_id = request.args.get('personal_id', type=int)
+
+    if not fecha_desde or not fecha_hasta:
+        return jsonify({'error': 'fecha_desde y fecha_hasta son requeridos'}), 400
+
+    if fecha_desde > fecha_hasta:
+        return jsonify({'error': 'fecha_desde no puede ser mayor a fecha_hasta'}), 400
+
+    resumen = construir_resumen_viaticos(fecha_desde, fecha_hasta, nombre, personal_id)
+    data = resumen['items']
+
+    if len(data) == 0:
+        return jsonify({'error': 'No hay datos para exportar en ese rango'}), 404
+
+    import io
+    import re
+
+    def slugify_filename(texto):
+        limpio = re.sub(r'[^A-Za-z0-9_-]+', '_', (texto or '').strip())
+        return limpio.strip('_') or 'empleado'
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Viaticos'
+
+    encabezados = [
+        'Apellido',
+        'Nombre',
+        'Periodo desde',
+        'Periodo hasta',
+        'Valor viatico entero',
+        'Valor medio viatico',
+        'Dias viatico entero',
+        'Dias viatico medio',
+        'Dias sin viatico',
+        'Equivalente viaticos',
+        'Total viatico'
+    ]
+    ws.append(encabezados)
+
+    for item in data:
+        valor_entero = round(float(item.get('valor_viatico_referencia') or resumen.get('valor_viatico_base') or 0), 2)
+        valor_medio = round(valor_entero * 0.5, 2)
+        dias_entero = int(item.get('dias_viatico_entero') or 0)
+        dias_medio = int(item.get('dias_viatico_medio') or 0)
+        dias_sin = int(item.get('dias_sin_viatico') or 0)
+        equivalente = round(dias_entero + (dias_medio * 0.5), 2)
+        total_viatico = round(float(item.get('total_viatico') or 0), 2)
+
+        ws.append([
+            item.get('apellido', ''),
+            item.get('nombre', ''),
+            fecha_desde,
+            fecha_hasta,
+            valor_entero,
+            valor_medio,
+            dias_entero,
+            dias_medio,
+            dias_sin,
+            equivalente,
+            total_viatico,
+        ])
+
+    # Ajuste simple de ancho para mejorar lectura
+    anchos = {
+        'A': 18,
+        'B': 18,
+        'C': 14,
+        'D': 14,
+        'E': 20,
+        'F': 20,
+        'G': 18,
+        'H': 18,
+        'I': 16,
+        'J': 20,
+        'K': 16,
+    }
+    for columna, ancho in anchos.items():
+        ws.column_dimensions[columna].width = ancho
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+
+    if len(data) == 1:
+        item = data[0]
+        apellido = slugify_filename(item.get('apellido', '')).upper()
+        nombre_archivo = slugify_filename(item.get('nombre', '')).lower()
+        archivo = f'{fecha_hasta}-{apellido}-{nombre_archivo}.xlsx'
+    else:
+        archivo = f'viaticos_{fecha_desde}_a_{fecha_hasta}.xlsx'
+
+    response = make_response(buffer.getvalue())
+    response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    response.headers['Content-Disposition'] = f'attachment; filename={archivo}'
+    return response
+
+
 from routes.auth import auth_bp
 from routes.admin import admin_bp
