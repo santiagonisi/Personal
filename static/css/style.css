@@ -429,6 +429,78 @@ table {
     color: #475569;
 }
 
+.viaticos-modal-decimal {
+    margin-top: 14px;
+    font-size: 15px;
+    color: #1e293b;
+    text-align: right;
+}
+
+.viaticos-total-row td {
+    background: #f1f5f9;
+    border-top: 2px solid #cbd5e1;
+}
+
+.viaticos-control-banner {
+    margin-top: 16px;
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.viaticos-control-banner.is-ok {
+    background: #ecfdf3;
+    border: 1px solid #a7f3d0;
+    color: #065f46;
+}
+
+.viaticos-control-banner.is-warning {
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    color: #9a3412;
+}
+
+.viaticos-modal-table-wrapper {
+    margin-top: 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+    overflow-x: auto;
+}
+
+.viaticos-modal-table {
+    width: 100%;
+    min-width: 780px;
+    border-collapse: collapse;
+    box-shadow: none;
+}
+
+.viaticos-modal-table th,
+.viaticos-modal-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap;
+    font-size: 13px;
+}
+
+.viaticos-modal-table th {
+    background: #f8fafc;
+    color: #334155;
+    font-weight: 600;
+}
+
+.viaticos-modal-table tbody tr:hover {
+    background: #f8fafc;
+}
+
+.viaticos-modal-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
 .viaticos-modal-actions {
     display: flex;
     justify-content: flex-end;

@@ -94,6 +94,104 @@ function formatMoney(value) {
     });
 }
 
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function formatNivelViatico(nivel) {
+    const normalizado = String(nivel || '').trim().toLowerCase();
+    if (normalizado === 'entero') return 'Entero';
+    if (normalizado === 'medio') return 'Medio';
+    return 'Sin viático';
+}
+
+function calcularControlViaticos(empleado) {
+    const detalles = Array.isArray(empleado?.detalles) ? empleado.detalles : [];
+    const precioEntero = Number(empleado?.valor_viatico_referencia || configuracionViaticos.valor_viatico_base || 0);
+    const precioMedio = Number((precioEntero * 0.5).toFixed(2));
+
+    let cantidadEntero = 0;
+    let cantidadMedio = 0;
+    let cantidadSinViatico = 0;
+    let totalSegunDetalle = 0;
+
+    detalles.forEach(detalle => {
+        const clasificacion = String(detalle?.clasificacion_formula || '').trim().toLowerCase();
+        const montoDia = Number(detalle?.monto_viatico || 0);
+        totalSegunDetalle += montoDia;
+
+        if (clasificacion === 'entero') {
+            cantidadEntero += 1;
+            return;
+        }
+
+        if (clasificacion === 'medio') {
+            cantidadMedio += 1;
+            return;
+        }
+
+        cantidadSinViatico += 1;
+    });
+
+    const subtotalEntero = Number((cantidadEntero * precioEntero).toFixed(2));
+    const subtotalMedio = Number((cantidadMedio * precioMedio).toFixed(2));
+    const totalControl = Number((subtotalEntero + subtotalMedio).toFixed(2));
+    const totalViaticoDecimal = Number((cantidadEntero + cantidadMedio * 0.5).toFixed(2));
+
+    return {
+        precioEntero,
+        precioMedio,
+        cantidadEntero,
+        cantidadMedio,
+        cantidadSinViatico,
+        subtotalEntero,
+        subtotalMedio,
+        totalControl,
+        totalSegunDetalle: Number(totalSegunDetalle.toFixed(2)),
+        diferencia: Number((totalSegunDetalle - totalControl).toFixed(2)),
+        totalViaticoDecimal
+    };
+}
+
+function construirFilasDetalleViaticos(detalles) {
+    if (!Array.isArray(detalles) || detalles.length === 0) {
+        return '<tr><td colspan="7" style="text-align: center;">Sin detalle diario para este período.</td></tr>';
+    }
+
+    const detallesOrdenados = [...detalles].sort((a, b) => {
+        const fechaA = String(a?.fecha || '');
+        const fechaB = String(b?.fecha || '');
+        return fechaA.localeCompare(fechaB);
+    });
+
+    return detallesOrdenados.map(detalle => {
+        const fecha = formatDate(detalle.fecha);
+        const obra = escapeHtml(detalle.obra_nombre || 'Sin obra');
+        const tipo = escapeHtml(detalle.tipo || '-');
+        const vivienda = formatNivelViatico(detalle.viatico_vivienda_nivel);
+        const traslado = formatNivelViatico(detalle.viatico_traslado_nivel);
+        const clasificacion = formatNivelViatico(detalle.clasificacion_formula);
+        const montoDia = formatMoney(detalle.monto_viatico || 0);
+
+        return `
+            <tr>
+                <td>${fecha}</td>
+                <td>${obra}</td>
+                <td>${tipo}</td>
+                <td>${vivienda}</td>
+                <td>${traslado}</td>
+                <td>${clasificacion}</td>
+                <td><strong>${montoDia}</strong></td>
+            </tr>
+        `;
+    }).join('');
+}
+
 function actualizarMedioViatico() {
     const base = parseFloat(document.getElementById('valor_viatico_base').value) || 0;
     const medio = Number((base * 0.5).toFixed(2));
@@ -217,36 +315,51 @@ function abrirModalViaticos(personalId) {
     const body = document.getElementById('viaticos-modal-body');
     const fechaDesde = document.getElementById('fecha_desde').value;
     const fechaHasta = document.getElementById('fecha_hasta').value;
+    const control = calcularControlViaticos(empleado);
+    const filasDetalle = construirFilasDetalleViaticos(empleado.detalles || []);
 
     subtitle.textContent = `${empleado.apellido}, ${empleado.nombre}`;
     body.innerHTML = `
         <div class="viaticos-modal-grid">
             <div class="viaticos-modal-card">
                 <span class="viaticos-modal-label">Período</span>
-                <strong>${formatDate(fechaDesde)} a ${formatDate(fechaHasta)}</strong>
+                <strong>${formatDate(fechaDesde)} al ${formatDate(fechaHasta)}</strong>
             </div>
             <div class="viaticos-modal-card">
-                <span class="viaticos-modal-label">Total viático</span>
-                <strong>${formatMoney(empleado.total_viatico || 0)}</strong>
-            </div>
-            <div class="viaticos-modal-card">
-                <span class="viaticos-modal-label">Días con viático entero</span>
-                <strong>${empleado.dias_viatico_entero || 0}</strong>
-            </div>
-            <div class="viaticos-modal-card">
-                <span class="viaticos-modal-label">Días con medio viático</span>
-                <strong>${empleado.dias_viatico_medio || 0}</strong>
-            </div>
-            <div class="viaticos-modal-card">
-                <span class="viaticos-modal-label">Días sin viático</span>
-                <strong>${empleado.dias_sin_viatico || 0}</strong>
-            </div>
-            <div class="viaticos-modal-card">
-                <span class="viaticos-modal-label">Horas trabajadas</span>
-                <strong>${empleado.horas_totales || 0}</strong>
+                <span class="viaticos-modal-label">Valores de viático</span>
+                <span>Entero: <strong>${formatMoney(control.precioEntero)}</strong></span>
+                <span>Medio: <strong>${formatMoney(control.precioMedio)}</strong></span>
             </div>
         </div>
-        <p class="viaticos-modal-note">Este modal queda como base del detalle individual y también como referencia del PDF a descargar para este empleado.</p>
+
+        <div class="viaticos-modal-table-wrapper">
+            <table class="viaticos-modal-table">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Obra</th>
+                        <th>Tipo</th>
+                        <th>Viv.</th>
+                        <th>Tras.</th>
+                        <th>Clasificación</th>
+                        <th>Monto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${filasDetalle}
+                </tbody>
+                <tfoot>
+                    <tr class="viaticos-total-row">
+                        <td colspan="6"><strong>Total</strong></td>
+                        <td><strong>${formatMoney(control.totalControl)}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <p class="viaticos-modal-decimal">
+            Equivalente a <strong>${control.totalViaticoDecimal.toFixed(2)} viáticos</strong>
+        </p>
     `;
 
     modal.classList.add('is-open');

@@ -898,49 +898,133 @@ def get_viaticos_resumen_pdf():
         return limpio.strip('_') or 'empleado'
 
     def generar_pdf_empleado(item):
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib import colors
+        from reportlab.lib.units import cm
+
         buffer = io.BytesIO()
-        c = canvas.Canvas(buffer, pagesize=A4)
-        width, height = A4
-        y = height - 40
+        doc = SimpleDocTemplate(
+            buffer, pagesize=A4,
+            leftMargin=1.5 * cm, rightMargin=1.5 * cm,
+            topMargin=1.5 * cm, bottomMargin=1.5 * cm
+        )
+        styles = getSampleStyleSheet()
+        story = []
 
-        nombre_completo = f"{item.get('nombre', '')} {item.get('apellido', '')}".strip()
+        nombre_completo = f"{item.get('apellido', '')}, {item.get('nombre', '')}".strip(', ')
+        valor_ref = float(item.get('valor_viatico_referencia') or valor_viatico_base or 0)
+        valor_medio_ref = round(valor_ref * 0.5, 2)
 
-        c.setTitle(f'Viatico_{nombre_completo}')
-        c.setFont('Helvetica-Bold', 12)
-        c.drawString(40, y, nombre_completo)
-        c.setFont('Helvetica', 10)
-        c.drawRightString(width - 40, y, f'Fecha: {fecha_descarga}')
-        y -= 18
+        # Encabezado
+        story.append(Paragraph(f"<b>{nombre_completo}</b>", styles['Heading1']))
+        story.append(Paragraph(f"Fecha de descarga: {fecha_descarga}", styles['Normal']))
+        story.append(Spacer(1, 0.4 * cm))
 
-        c.setFont('Helvetica', 10)
-        c.drawString(40, y, f'Periodo: {fecha_desde} a {fecha_hasta}')
-        y -= 22
+        # Dos recuadros: período + valores
+        page_w = A4[0] - 3 * cm
+        info_data = [
+            ['Período', f"{fecha_desde}  al  {fecha_hasta}",
+             'Valores de viático', f"Entero: ${valor_ref:,.2f}    |    Medio: ${valor_medio_ref:,.2f}"]
+        ]
+        info_table = Table(info_data, colWidths=[2.5 * cm, 5.5 * cm, 3 * cm, 7 * cm])
+        info_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTNAME', (0, 0), (0, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (2, 0), (2, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
+            ('BOX', (0, 0), (1, 0), 0.75, colors.HexColor('#cbd5e1')),
+            ('BOX', (2, 0), (3, 0), 0.75, colors.HexColor('#cbd5e1')),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ]))
+        story.append(info_table)
+        story.append(Spacer(1, 0.5 * cm))
 
-        c.setFont('Helvetica-Bold', 11)
-        c.drawString(40, y, 'Desglose')
-        y -= 16
+        # Tabla detalle por día
+        detalles = sorted(item.get('detalles', []), key=lambda x: x.get('fecha', ''))
 
-        c.setFont('Helvetica', 10)
-        c.drawString(40, y, f'Dias trabajados: {item.get("dias_presente", 0)}')
-        y -= 16
-        c.drawString(40, y, f'Hs trabajadas: {item.get("horas_totales", 0)}')
-        y -= 16
+        def nivel_label(nivel):
+            v = str(nivel or '').strip().lower()
+            if v == 'entero': return 'Entero'
+            if v == 'medio': return 'Medio'
+            return '-'
 
-        valor_viatico_referencia = item.get('valor_viatico_referencia', valor_viatico_base)
-        c.drawString(40, y, f'Valor viatico a la fecha: ${valor_viatico_referencia:.2f}')
-        y -= 16
+        header = ['Fecha', 'Obra', 'Tipo', 'Viv.', 'Tras.', 'Clasificación', 'Monto']
+        table_data = [header]
+        total_acum = 0.0
+        cant_entero = 0
+        cant_medio = 0
 
-        c.drawString(40, y, f'Dias viatico entero: {item.get("dias_viatico_entero", 0)}')
-        y -= 16
-        c.drawString(40, y, f'Dias viatico medio: {item.get("dias_viatico_medio", 0)}')
-        y -= 16
-        c.drawString(40, y, f'Dias sin viatico: {item.get("dias_sin_viatico", 0)}')
-        y -= 24
+        for det in detalles:
+            clasif = str(det.get('clasificacion_formula', '')).strip().lower()
+            if clasif == 'entero':
+                clasif_label = 'Entero'
+                cant_entero += 1
+            elif clasif == 'medio':
+                clasif_label = 'Medio'
+                cant_medio += 1
+            else:
+                clasif_label = 'Sin viático'
+            monto = float(det.get('monto_viatico', 0) or 0)
+            total_acum += monto
+            table_data.append([
+                det.get('fecha', ''),
+                det.get('obra_nombre', 'Sin obra'),
+                det.get('tipo', '-'),
+                nivel_label(det.get('viatico_vivienda_nivel')),
+                nivel_label(det.get('viatico_traslado_nivel')),
+                clasif_label,
+                f"${monto:,.2f}"
+            ])
 
-        c.setFont('Helvetica-Bold', 11)
-        c.drawString(40, y, f'Total viatico (sumatoria): ${item.get("total_viatico", 0):.2f}')
+        # Fila total
+        table_data.append(['', '', '', '', '', 'Total', f"${total_acum:,.2f}"])
 
-        c.save()
+        # Fila equivalente decimal
+        decimal_viatico = round(cant_entero + cant_medio * 0.5, 2)
+        table_data.append(['', '', '', '', '', 'Equivalente', f"{decimal_viatico:.2f} viáticos"])
+
+        n = len(table_data)
+        row_total = n - 2
+        row_equiv = n - 1
+
+        col_widths = [2 * cm, 5 * cm, 2.3 * cm, 1.2 * cm, 1.2 * cm, 3 * cm, 3.3 * cm]
+        det_table = Table(table_data, colWidths=col_widths, repeatRows=1)
+        det_table.setStyle(TableStyle([
+            # Encabezado
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#334155')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            # Filas de datos
+            ('FONTNAME', (0, 1), (-1, row_total - 1), 'Helvetica'),
+            ('ROWBACKGROUNDS', (0, 1), (-1, row_total - 1),
+             [colors.white, colors.HexColor('#f8fafc')]),
+            # Fila total
+            ('BACKGROUND', (0, row_total), (-1, row_total), colors.HexColor('#e2e8f0')),
+            ('FONTNAME', (0, row_total), (-1, row_total), 'Helvetica-Bold'),
+            ('LINEABOVE', (0, row_total), (-1, row_total), 1.5, colors.HexColor('#94a3b8')),
+            # Fila equivalente
+            ('BACKGROUND', (0, row_equiv), (-1, row_equiv), colors.HexColor('#dbeafe')),
+            ('FONTNAME', (0, row_equiv), (-1, row_equiv), 'Helvetica-Bold'),
+            # General
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#94a3b8')),
+            ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.HexColor('#e2e8f0')),
+            ('ALIGN', (-1, 0), (-1, -1), 'RIGHT'),
+            ('ALIGN', (-2, row_total), (-1, row_equiv), 'RIGHT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 5),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+        ]))
+        story.append(det_table)
+
+        doc.build(story)
         buffer.seek(0)
         return buffer.getvalue()
 
@@ -969,6 +1053,7 @@ def get_viaticos_resumen_pdf():
     response.headers['Content-Type'] = 'application/zip'
     response.headers['Content-Disposition'] = f'attachment; filename=viaticos_{fecha_desde}_a_{fecha_hasta}.zip'
     return response
+
 
 from routes.auth import auth_bp
 from routes.admin import admin_bp
