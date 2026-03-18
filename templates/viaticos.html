@@ -33,6 +33,7 @@
         </div>
         <button class="btn btn-edit" onclick="cargarResumenViaticos()">Cargar Resumen</button>
         <button class="btn btn-success" onclick="descargarPdfListadoViaticos()">Descargar PDF</button>
+        <button class="btn btn-success" onclick="descargarExcelListadoViaticos()">Descargar Excel</button>
     </div>
 
     <div id="resumen-viaticos" style="margin-bottom: 15px; color: #666;"></div>
@@ -69,6 +70,7 @@
 
         <div class="viaticos-modal-actions">
             <button type="button" class="btn btn-success" onclick="descargarPdfEmpleadoSeleccionado()">Descargar PDF de este empleado</button>
+            <button type="button" class="btn btn-success" onclick="descargarExcelEmpleadoSeleccionado()">Descargar Excel de este empleado</button>
             <button type="button" class="btn" onclick="cerrarModalViaticos()">Cerrar</button>
         </div>
     </div>
@@ -397,6 +399,28 @@ function descargarPdfListadoViaticos() {
     window.location.href = `/api/viaticos/resumen.pdf?${params.toString()}`;
 }
 
+function descargarExcelListadoViaticos() {
+    const fechaDesde = document.getElementById('fecha_desde').value;
+    const fechaHasta = document.getElementById('fecha_hasta').value;
+    const nombre = document.getElementById('nombre').value.trim();
+
+    if (!fechaDesde || !fechaHasta) {
+        showNotification('Debe completar fecha desde y fecha hasta', 'error');
+        return;
+    }
+
+    const params = new URLSearchParams({
+        fecha_desde: fechaDesde,
+        fecha_hasta: fechaHasta
+    });
+
+    if (nombre) {
+        params.append('nombre', nombre);
+    }
+
+    window.location.href = `/api/viaticos/resumen.xlsx?${params.toString()}`;
+}
+
 function descargarPdfEmpleadoSeleccionado() {
     const fechaDesde = document.getElementById('fecha_desde').value;
     const fechaHasta = document.getElementById('fecha_hasta').value;
@@ -419,6 +443,30 @@ function descargarPdfEmpleadoSeleccionado() {
     });
 
     window.location.href = `/api/viaticos/resumen.pdf?${params.toString()}`;
+}
+
+function descargarExcelEmpleadoSeleccionado() {
+    const fechaDesde = document.getElementById('fecha_desde').value;
+    const fechaHasta = document.getElementById('fecha_hasta').value;
+    const empleado = obtenerEmpleadoSeleccionado();
+
+    if (!fechaDesde || !fechaHasta) {
+        showNotification('Debe completar fecha desde y fecha hasta', 'error');
+        return;
+    }
+
+    if (!empleado) {
+        showNotification('Seleccione un empleado para descargar su Excel', 'error');
+        return;
+    }
+
+    const params = new URLSearchParams({
+        fecha_desde: fechaDesde,
+        fecha_hasta: fechaHasta,
+        personal_id: empleado.personal_id
+    });
+
+    window.location.href = `/api/viaticos/resumen.xlsx?${params.toString()}`;
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
