@@ -68,17 +68,17 @@ def normalizar_nivel_viatico(nivel):
     return 'sin_viatico'
 
 def calcular_monto_viatico_por_niveles(nivel_vivienda, nivel_traslado, valor_base, valor_medio):
-    ranking = {'sin_viatico': 0, 'medio': 1, 'entero': 2}
+    # Cada componente aporta un peso: entero=1.0, medio=0.5, sin_viatico=0.0
+    # medio+medio = 1.0 -> entero; entero + cualquier cosa >= 1 -> entero
+    pesos = {'sin_viatico': 0.0, 'medio': 0.5, 'entero': 1.0}
     nivel_vivienda = normalizar_nivel_viatico(nivel_vivienda)
     nivel_traslado = normalizar_nivel_viatico(nivel_traslado)
 
-    nivel_final = nivel_vivienda
-    if ranking[nivel_traslado] > ranking[nivel_final]:
-        nivel_final = nivel_traslado
+    suma = pesos[nivel_vivienda] + pesos[nivel_traslado]
 
-    if nivel_final == 'entero':
+    if suma >= 1.0:
         return 'entero', valor_base
-    if nivel_final == 'medio':
+    if suma == 0.5:
         return 'medio', valor_medio
     return 'sin_viatico', 0.0
 
