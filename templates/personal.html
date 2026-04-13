@@ -189,7 +189,7 @@ async function editPersonal(id) {
         document.getElementById('dni').value = personal.dni || '';
         document.getElementById('email').value = personal.email || '';
         document.getElementById('telefono').value = personal.telefono || '';
-        document.getElementById('fecha_ingreso').value = personal.fecha_ingreso || '';
+        document.getElementById('fecha_ingreso').value = formatDateForInput(personal.fecha_ingreso) || '';
         document.getElementById('lugar_trabajo').value = personal.lugar_trabajo || 'obra';
         
         document.getElementById('modal-title').textContent = 'Editar Empleado';
