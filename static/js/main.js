@@ -68,6 +68,21 @@ function formatDate(dateString) {
     return date.toLocaleDateString('es-AR');
 }
 
+// Formatear fecha para input date (YYYY-MM-DD sin problemas de zona horaria)
+function formatDateForInput(dateString) {
+    if (!dateString) return '';
+    // Si es string en formato YYYY-MM-DD, devolverlo tal cual
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        return dateString;
+    }
+    // Si es un formato diferente, convertir
+    const date = new Date(dateString + 'T00:00:00');
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 // Formatear hora
 function formatTime(timeString) {
     if (!timeString) return '';
