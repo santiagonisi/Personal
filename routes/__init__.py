@@ -454,28 +454,33 @@ def get_personal():
 @admin_required
 def crear_personal():
     try:
-        data = request.json
-        if not data:
-            return jsonify({'error': 'No se recibieron datos'}), 400
-        
-        if not data.get('nombre') or not data.get('apellido'):
+        if not request.form.get('nombre') or not request.form.get('apellido'):
             return jsonify({'error': 'Nombre y Apellido son requeridos'}), 400
 
-        lugar_trabajo = data.get('lugar_trabajo', 'obra')
-        if lugar_trabajo not in ['oficina', 'obra', 'planta']:
-            return jsonify({'error': 'lugar_trabajo debe ser oficina, obra o planta'}), 400
-
-        legajo = (data.get('legajo') or '').strip() or None
+        legajo = (request.form.get('legajo') or '').strip() or None
+        foto_filename = None
+        
+        if 'foto' in request.files:
+            foto = request.files['foto']
+            if foto and foto.filename:
+                import os
+                from werkzeug.utils import secure_filename
+                
+                upload_folder = os.path.join(os.path.dirname(__file__), '..', 'static', 'uploads', 'personal')
+                os.makedirs(upload_folder, exist_ok=True)
+                
+                filename = secure_filename(f"{legajo or 'sin_legajo'}_{int(__import__('time').time())}_{foto.filename}")
+                filepath = os.path.join(upload_folder, filename)
+                foto.save(filepath)
+                foto_filename = filename
         
         nuevo = Personal(
             legajo=legajo,
-            nombre=data['nombre'],
-            apellido=data['apellido'],
-            email=data.get('email'),
-            telefono=data.get('telefono'),
-            dni=data.get('dni'),
-            lugar_trabajo=lugar_trabajo,
-            fecha_ingreso=data.get('fecha_ingreso', '')
+            nombre=request.form.get('nombre'),
+            apellido=request.form.get('apellido'),
+            email=request.form.get('email'),
+            dni=request.form.get('dni'),
+            foto=foto_filename
         )
         db.session.add(nuevo)
         db.session.commit()
@@ -500,20 +505,31 @@ def actualizar_personal(id):
         if not personal:
             return jsonify({'error': 'No encontrado'}), 404
 
-        data = request.json or {}
-        if 'lugar_trabajo' in data and data.get('lugar_trabajo') not in ['oficina', 'obra', 'planta']:
-            return jsonify({'error': 'lugar_trabajo debe ser oficina, obra o planta'}), 400
-
-        personal.nombre = data.get('nombre', personal.nombre)
-        personal.apellido = data.get('apellido', personal.apellido)
-        if 'legajo' in data:
-            personal.legajo = (data.get('legajo') or '').strip() or None
-        personal.email = data.get('email', personal.email)
-        personal.telefono = data.get('telefono', personal.telefono)
-        personal.dni = data.get('dni', personal.dni)
-        personal.lugar_trabajo = data.get('lugar_trabajo', personal.lugar_trabajo)
-        personal.fecha_ingreso = data.get('fecha_ingreso', personal.fecha_ingreso)
-        personal.estado = data.get('estado', personal.estado)
+        personal.nombre = request.form.get('nombre', personal.nombre)
+        personal.apellido = request.form.get('apellido', personal.apellido)
+        if 'legajo' in request.form:
+            personal.legajo = (request.form.get('legajo') or '').strip() or None
+        personal.email = request.form.get('email', personal.email)
+        personal.dni = request.form.get('dni', personal.dni)
+        
+        if 'foto' in request.files:
+            foto = request.files['foto']
+            if foto and foto.filename:
+                import os
+                from werkzeug.utils import secure_filename
+                
+                upload_folder = os.path.join(os.path.dirname(__file__), '..', 'static', 'uploads', 'personal')
+                os.makedirs(upload_folder, exist_ok=True)
+                
+                if personal.foto:
+                    old_path = os.path.join(upload_folder, personal.foto)
+                    if os.path.exists(old_path):
+                        os.remove(old_path)
+                
+                filename = secure_filename(f"{personal.legajo or 'sin_legajo'}_{personal.id}_{foto.filename}")
+                filepath = os.path.join(upload_folder, filename)
+                foto.save(filepath)
+                personal.foto = filename
 
         db.session.commit()
         return jsonify({'mensaje': 'Actualizado'})
@@ -529,8 +545,13 @@ def eliminar_personal(id):
         if not personal:
             return jsonify({'error': 'No encontrado'}), 404
 
-        # Eliminar el empleado directamente, manteniendo los registros asociados
-        # (presentismo, ingresos/egresos, etc.)
+        if personal.foto:
+            import os
+            upload_folder = os.path.join(os.path.dirname(__file__), '..', 'static', 'uploads', 'personal')
+            foto_path = os.path.join(upload_folder, personal.foto)
+            if os.path.exists(foto_path):
+                os.remove(foto_path)
+
         db.session.delete(personal)
         db.session.commit()
         return jsonify({'mensaje': 'Empleado eliminado exitosamente. Los registros asociados se mantienen.'})

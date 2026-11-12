@@ -9,11 +9,8 @@ class Personal(db.Model):
     nombre = db.Column(db.String(100), nullable=False)
     apellido = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(100))
-    telefono = db.Column(db.String(20))
     dni = db.Column(db.String(20), unique=True)
-    estado = db.Column(db.String(20), default='activo')
-    lugar_trabajo = db.Column(db.String(20), default='obra')
-    fecha_ingreso = db.Column(db.String(10), nullable=True)
+    foto = db.Column(db.String(255))
     fecha_creacion = db.Column(db.DateTime, default=datetime.now)
     
     def to_dict(self):
@@ -23,11 +20,8 @@ class Personal(db.Model):
             'nombre': self.nombre,
             'apellido': self.apellido,
             'email': self.email,
-            'telefono': self.telefono,
             'dni': self.dni,
-            'estado': self.estado,
-            'lugar_trabajo': self.lugar_trabajo,
-            'fecha_ingreso': self.fecha_ingreso
+            'foto': self.foto
         }
 
 

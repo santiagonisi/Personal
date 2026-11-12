@@ -14,27 +14,10 @@
     </div>
     {% endif %}
 
-    <div style="overflow-x: auto;">
-        <table>
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Legajo</th>
-                    <th>Nombre</th>
-                    <th>Apellido</th>
-                    <th>DNI</th>
-                    <th>Email</th>
-                    <th>Teléfono</th>
-                    <th>Lugar</th>
-                    <th>Fecha Ingreso</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody id="personal-table">
-                <tr><td colspan="11" style="text-align: center;">Cargando...</td></tr>
-            </tbody>
-        </table>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px;">
+        <div id="personal-grid">
+            <p style="grid-column: 1/-1; text-align: center;">Cargando...</p>
+        </div>
     </div>
 </div>
 
@@ -44,7 +27,7 @@
             <h3 id="modal-title">Nuevo Empleado</h3>
             <button class="modal-close" onclick="closePersonalForm()">×</button>
         </div>
-        <form id="personal-form" onsubmit="savePersonal(event)">
+        <form id="personal-form" onsubmit="savePersonal(event)" enctype="multipart/form-data">
             <input type="hidden" id="personal-id">
             <div class="form-group">
                 <label>Legajo</label>
@@ -67,20 +50,14 @@
                 <input type="email" id="email">
             </div>
             <div class="form-group">
-                <label>Teléfono</label>
-                <input type="tel" id="telefono">
-            </div>
-            <div class="form-group">
-                <label>Fecha de Ingreso *</label>
-                <input type="date" id="fecha_ingreso" required>
-            </div>
-            <div class="form-group">
-                <label>Lugar de Trabajo *</label>
-                <select id="lugar_trabajo" required>
-                    <option value="obra">Obra</option>
-                    <option value="oficina">Oficina</option>
-                    <option value="planta">Planta</option>
-                </select>
+                <label>Foto</label>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div id="foto-preview" style="display: none; text-align: center;">
+                        <img id="foto-img" src="" alt="Foto" style="max-width: 150px; max-height: 150px; border-radius: 8px; border: 1px solid #ddd;">
+                    </div>
+                    <input type="file" id="foto" accept="image/*" onchange="previewFoto()">
+                    <small>Formatos soportados: JPG, PNG, WebP (máx. 2MB)</small>
+                </div>
             </div>
             <div class="btn-group">
                 <button type="submit" class="btn btn-success">Guardar</button>
@@ -89,6 +66,61 @@
         </form>
     </div>
 </div>
+
+<style>
+.personal-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 15px;
+    text-align: center;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.personal-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.personal-foto {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 10px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #007bff;
+    background: #f0f0f0;
+}
+
+.personal-info {
+    margin: 10px 0;
+}
+
+.personal-nombre {
+    font-weight: bold;
+    font-size: 16px;
+    color: #333;
+}
+
+.personal-dni {
+    font-size: 12px;
+    color: #666;
+    margin-top: 5px;
+}
+
+.personal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+.personal-actions button {
+    padding: 5px 10px;
+    font-size: 12px;
+}
+</style>
 
 <script>
 let editingId = null;
@@ -99,6 +131,7 @@ function openPersonalForm() {
     document.getElementById('modal-title').textContent = 'Nuevo Empleado';
     document.getElementById('personal-modal').classList.add('active');
     document.getElementById('personal-form').reset();
+    document.getElementById('foto-preview').style.display = 'none';
 }
 
 function closePersonalForm() {
@@ -106,29 +139,54 @@ function closePersonalForm() {
     editingId = null;
 }
 
+function previewFoto() {
+    const input = document.getElementById('foto');
+    const preview = document.getElementById('foto-preview');
+    const img = document.getElementById('foto-img');
+    
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            img.src = e.target.result;
+            preview.style.display = 'block';
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
 async function savePersonal(event) {
     event.preventDefault();
     
-    const data = {
-        legajo: document.getElementById('legajo').value,
-        nombre: document.getElementById('nombre').value,
-        apellido: document.getElementById('apellido').value,
-        dni: document.getElementById('dni').value,
-        email: document.getElementById('email').value,
-        telefono: document.getElementById('telefono').value,
-        fecha_ingreso: document.getElementById('fecha_ingreso').value,
-        lugar_trabajo: document.getElementById('lugar_trabajo').value
-    };
+    const formData = new FormData();
+    formData.append('legajo', document.getElementById('legajo').value);
+    formData.append('nombre', document.getElementById('nombre').value);
+    formData.append('apellido', document.getElementById('apellido').value);
+    formData.append('dni', document.getElementById('dni').value);
+    formData.append('email', document.getElementById('email').value);
+    
+    const fotoInput = document.getElementById('foto');
+    if (fotoInput.files && fotoInput.files[0]) {
+        formData.append('foto', fotoInput.files[0]);
+    }
 
     try {
         const id = document.getElementById('personal-id').value;
-        if (id) {
-            await apiCall(`/api/personal/${id}`, 'PUT', data);
-            showNotification('Empleado actualizado exitosamente');
-        } else {
-            await apiCall('/api/personal', 'POST', data);
-            showNotification('Empleado creado exitosamente');
+        const url = id ? `/api/personal/${id}` : '/api/personal';
+        const method = id ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('input[name="csrf_token"]')?.value
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}`);
         }
+
+        showNotification(id ? 'Empleado actualizado exitosamente' : 'Empleado creado exitosamente');
         closePersonalForm();
         loadPersonal();
     } catch (error) {
@@ -141,37 +199,36 @@ async function loadPersonal() {
     try {
         const personal = await apiCall('/api/personal');
         
-        const table = document.getElementById('personal-table');
-        table.innerHTML = '';
+        const grid = document.getElementById('personal-grid');
+        grid.innerHTML = '';
 
         if (!personal || personal.length === 0) {
-            table.innerHTML = '<tr><td colspan="11" style="text-align: center;">No hay empleados registrados</td></tr>';
+            grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center;">No hay empleados registrados</p>';
             return;
         }
         
         personal.forEach(p => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${p.id}</td>
-                <td>${p.legajo || '-'}</td>
-                <td>${p.nombre}</td>
-                <td>${p.apellido}</td>
-                <td>${p.dni || '-'}</td>
-                <td>${p.email || '-'}</td>
-                <td>${p.telefono || '-'}</td>
-                <td>${formatLugarTrabajo(p.lugar_trabajo)}</td>
-                <td>${formatDate(p.fecha_ingreso)}</td>
-                <td>${p.estado || 'Activo'}</td>
-                <td>
+            const card = document.createElement('div');
+            card.className = 'personal-card';
+            
+            const foto = p.foto ? `/uploads/personal/${p.foto}` : 'https://via.placeholder.com/120?text=Sin+Foto';
+            
+            card.innerHTML = `
+                <img src="${foto}" alt="${p.nombre} ${p.apellido}" class="personal-foto" onerror="this.src='https://via.placeholder.com/120?text=Sin+Foto'">
+                <div class="personal-info">
+                    <div class="personal-nombre">${p.nombre} ${p.apellido}</div>
+                    <div class="personal-dni">DNI: ${p.dni || '-'}</div>
+                    ${p.legajo ? `<div class="personal-dni">Legajo: ${p.legajo}</div>` : ''}
+                    ${p.email ? `<div class="personal-dni">${p.email}</div>` : ''}
+                </div>
+                <div class="personal-actions">
                     {% if current_user.es_admin() %}
-                    <button class="btn btn-small btn-accion-tabla btn-edit" onclick="editPersonal(${p.id})" title="Editar">✏️</button>
-                    <button class="btn btn-small btn-accion-tabla btn-delete" onclick="deletePersonal(${p.id})" title="Eliminar">🗑️</button>
-                    {% else %}
-                    -
+                    <button class="btn btn-small btn-edit" onclick="editPersonal(${p.id})" title="Editar">✏️</button>
+                    <button class="btn btn-small btn-delete" onclick="deletePersonal(${p.id})" title="Eliminar">🗑️</button>
                     {% endif %}
-                </td>
+                </div>
             `;
-            table.appendChild(row);
+            grid.appendChild(card);
         });
     } catch (error) {
         console.error('Error cargando personal:', error);
@@ -188,9 +245,12 @@ async function editPersonal(id) {
         document.getElementById('apellido').value = personal.apellido;
         document.getElementById('dni').value = personal.dni || '';
         document.getElementById('email').value = personal.email || '';
-        document.getElementById('telefono').value = personal.telefono || '';
-        document.getElementById('fecha_ingreso').value = formatDateForInput(personal.fecha_ingreso) || '';
-        document.getElementById('lugar_trabajo').value = personal.lugar_trabajo || 'obra';
+        
+        if (personal.foto) {
+            const img = document.getElementById('foto-img');
+            img.src = `/uploads/personal/${personal.foto}`;
+            document.getElementById('foto-preview').style.display = 'block';
+        }
         
         document.getElementById('modal-title').textContent = 'Editar Empleado';
         document.getElementById('personal-modal').classList.add('active');
@@ -211,12 +271,6 @@ async function deletePersonal(id) {
             console.error('Error:', error);
         }
     }
-}
-
-function formatLugarTrabajo(lugar) {
-    if (!lugar) return 'Obra';
-    const valor = String(lugar).toLowerCase();
-    return valor.charAt(0).toUpperCase() + valor.slice(1);
 }
 
 document.addEventListener('DOMContentLoaded', loadPersonal);

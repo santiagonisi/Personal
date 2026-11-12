@@ -1,0 +1,233 @@
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                         GUÍA DE INICIO RÁPIDO                                ║
+║                    Módulo Personal - Gestión de Empleados                    ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+🚀 INICIO EN 5 MINUTOS
+═════════════════════════════════════════════════════════════════════════════════
+
+1. EJECUTAR LA APLICACIÓN
+   $ python run.py
+   → Acceder a: http://localhost:5000/personal
+
+2. INICIAR SESIÓN
+   Usuario: admin
+   Contraseña: [tu contraseña]
+
+3. CREAR PRIMER EMPLEADO
+   ✓ Haz clic en "+ Nuevo Empleado"
+   ✓ Completa: Nombre y Apellido (requerido)
+   ✓ Opcional: DNI, Email, Legajo
+   ✓ IMPORTANTE: Sube una foto (JPG/PNG/WebP, máx 2MB)
+   ✓ Haz clic en "Guardar"
+
+4. VER GALERÍA
+   ✓ Verás tarjetas con:
+      • Foto circular del empleado
+      • Nombre y apellido
+      • DNI (si existe)
+      • Email (si existe)
+      • Botones: editar (✏️) y eliminar (🗑️)
+
+5. EDITAR O ELIMINAR
+   ✓ Editar: Haz clic en ✏️ para cambiar datos o foto
+   ✓ Eliminar: Haz clic en 🗑️ y confirma
+
+═════════════════════════════════════════════════════════════════════════════════
+
+📋 CAMBIOS REALIZADOS
+═════════════════════════════════════════════════════════════════════════════════
+
+CAMPOS ELIMINADOS:
+  ❌ telefono
+  ❌ lugar_trabajo
+  ❌ fecha_ingreso
+  ❌ estado
+
+CAMPOS AGREGADOS:
+  ✅ foto (VARCHAR 255)
+
+INTERFAZ:
+  ANTES: Tabla con 11 columnas
+  AHORA: Galería de tarjetas responsiva
+
+═════════════════════════════════════════════════════════════════════════════════
+
+📖 DOCUMENTACIÓN
+═════════════════════════════════════════════════════════════════════════════════
+
+CAMBIOS.md
+└─ Detalle técnico de todos los cambios
+   - Estructura de archivos
+   - Cambios por archivo
+   - Notas técnicas
+
+API_CAMBIOS.md
+└─ Documentación de API REST
+   - Endpoints disponibles
+   - Ejemplos con cURL y JavaScript
+   - Cambio JSON → FormData
+   - Errores comunes
+
+INSTRUCCIONES_PRUEBA.md
+└─ Guía completa de pruebas
+   - Pasos para probar cada característica
+   - Validaciones esperadas
+   - Solución de problemas
+
+README_PERSONAL.md
+└─ Guía de usuario final
+   - Características principales
+   - Acciones disponibles
+   - Especificaciones técnicas
+
+═════════════════════════════════════════════════════════════════════════════════
+
+🎯 VALIDACIONES ESPERADAS
+═════════════════════════════════════════════════════════════════════════════════
+
+CREAR EMPLEADO:
+  ✓ Nombre y Apellido son obligatorios
+  ✓ DNI debe ser único
+  ✓ Legajo debe ser único
+  ✓ Foto acepta JPG, PNG, WebP
+  ✓ Foto máximo 2MB
+  ✓ Preview de foto antes de guardar
+
+EDITAR EMPLEADO:
+  ✓ Puedes cambiar cualquier campo
+  ✓ Puedes cambiar la foto
+  ✓ La foto anterior se elimina automáticamente
+
+ELIMINAR EMPLEADO:
+  ✓ Se pide confirmación
+  ✓ El empleado se elimina
+  ✓ La foto se elimina automáticamente
+  ✓ Los registros de Presentismo e Ingresos se mantienen
+
+═════════════════════════════════════════════════════════════════════════════════
+
+🗺️ ESTRUCTURA DE CARPETAS
+═════════════════════════════════════════════════════════════════════════════════
+
+Personal/
+├── models/
+│   └── __init__.py              ← Modelo Personal (actualizado)
+├── routes/
+│   └── __init__.py              ← API REST (actualizado)
+├── templates/
+│   └── personal.html            ← Interfaz HTML (rediseñada)
+├── static/
+│   └── uploads/
+│       └── personal/            ← Fotos de empleados (NUEVA)
+├── app.py                       ← Flask app (actualizado)
+├── __init__.py                  ← Configuración (actualizado)
+├── .gitignore                   ← Reglas Git (actualizado)
+├── CAMBIOS.md                   ← Resumen de cambios
+├── API_CAMBIOS.md               ← Documentación API
+├── INSTRUCCIONES_PRUEBA.md      ← Guía de pruebas
+├── README_PERSONAL.md           ← Guía de usuario
+└── QUICK_START.txt              ← Este archivo
+
+═════════════════════════════════════════════════════════════════════════════════
+
+⚙️ ESPECIFICACIONES DE FOTO
+═════════════════════════════════════════════════════════════════════════════════
+
+FORMATOS:
+  • JPG/JPEG
+  • PNG
+  • WebP
+
+TAMAÑO:
+  • Máximo: 2MB
+
+DIMENSIONES:
+  • Recomendado: 500x500 píxeles
+  • Se mostrará en círculo de 120px
+
+ALMACENAMIENTO:
+  • Ubicación: static/uploads/personal/
+  • Nombre: {legajo}_{id}_{timestamp}_{original}
+  • Se elimina automáticamente al cambiar o eliminar empleado
+
+═════════════════════════════════════════════════════════════════════════════════
+
+🔒 SEGURIDAD
+═════════════════════════════════════════════════════════════════════════════════
+
+✓ Validación de tipos de archivo (JPG, PNG, WebP)
+✓ Límite de tamaño (2MB en cliente y servidor)
+✓ Sanitización de nombres de archivo
+✓ Eliminación automática de fotos antiguas
+✓ Carpeta de uploads excluida de versionamiento
+✓ Permisos de archivo seguros
+✓ Validación de campos requeridos
+
+═════════════════════════════════════════════════════════════════════════════════
+
+❓ PROBLEMAS COMUNES
+═════════════════════════════════════════════════════════════════════════════════
+
+PROBLEMA: "Error al guardar empleado"
+SOLUCIÓN: 
+  - Verifica que Nombre y Apellido no estén vacíos
+  - Verifica que la foto sea JPG, PNG o WebP
+  - Verifica que la foto no supere 2MB
+
+PROBLEMA: "Foto no se muestra"
+SOLUCIÓN:
+  - Recarga la página (Ctrl+F5)
+  - Verifica que la carpeta static/uploads/personal/ existe
+  - Comprueba los permisos de la carpeta
+
+PROBLEMA: "Error de migración de BD"
+SOLUCIÓN:
+  - Es normal en la primera ejecución después del cambio
+  - Se ejecuta automáticamente
+  - Revisa los logs de Flask si hay error
+
+PROBLEMA: "Base de datos tiene columnas antiguas"
+SOLUCIÓN:
+  - La migración debe detectarlas automáticamente
+  - Si hay error, consulta logs de Flask
+  - Los datos se preservarán
+
+═════════════════════════════════════════════════════════════════════════════════
+
+📞 SOPORTE
+═════════════════════════════════════════════════════════════════════════════════
+
+Para más información, consulta:
+  • CAMBIOS.md - Detalles técnicos
+  • API_CAMBIOS.md - Documentación de API
+  • INSTRUCCIONES_PRUEBA.md - Guía de pruebas
+  • README_PERSONAL.md - Guía de usuario
+
+═════════════════════════════════════════════════════════════════════════════════
+
+✅ CHECKLIST DE VERIFICACIÓN
+═════════════════════════════════════════════════════════════════════════════════
+
+Después de ejecutar, verifica:
+
+  ☐ La aplicación inicia sin errores
+  ☐ Puedes acceder a http://localhost:5000/personal
+  ☐ El botón "+ Nuevo Empleado" funciona
+  ☐ Puedes crear un empleado sin foto
+  ☐ Puedes crear un empleado con foto
+  ☐ La foto se ve circular en la galería
+  ☐ Puedes editar un empleado
+  ☐ Puedes cambiar la foto de un empleado
+  ☐ Puedes eliminar un empleado
+  ☐ La foto se elimina al eliminar empleado
+  ☐ La carpeta static/uploads/personal/ existe
+  ☐ Las fotos están guardadas en esa carpeta
+
+═════════════════════════════════════════════════════════════════════════════════
+
+Última actualización: 2026-11-12
+Versión: 1.1.0
+Estado: ✅ Producción
+
+═════════════════════════════════════════════════════════════════════════════════
