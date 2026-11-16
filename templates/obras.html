@@ -187,11 +187,16 @@ async function editObra(id) {
 async function deleteObra(id) {
     if (confirm('¿Desea eliminar esta obra?')) {
         try {
-            await fetch(`/api/obras/${id}`, { method: 'DELETE' });
-            showNotification('Obra eliminada');
+            const response = await fetch(`/api/obras/${id}`, { method: 'DELETE' });
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Error al eliminar');
+            }
+            showNotification('Obra eliminada exitosamente');
             loadObras();
         } catch (error) {
             console.error('Error:', error);
+            showNotification(error.message || 'Error al eliminar obra', 'error');
         }
     }
 }
