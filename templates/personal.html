@@ -176,10 +176,7 @@ async function savePersonal(event) {
         
         const response = await fetch(url, {
             method: method,
-            body: formData,
-            headers: {
-                'X-CSRFToken': document.querySelector('input[name="csrf_token"]')?.value
-            }
+            body: formData
         });
 
         if (!response.ok) {
@@ -206,49 +203,56 @@ async function loadPersonal() {
             grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center;">No hay empleados registrados</p>';
             return;
         }
-        
+
         personal.forEach(p => {
             const card = document.createElement('div');
             card.className = 'personal-card';
             
-            const foto = p.foto ? `/uploads/personal/${p.foto}` : 'https://via.placeholder.com/120?text=Sin+Foto';
+            let fotoHtml = '';
+            if (p.foto) {
+                fotoHtml = `<img src="/static/uploads/personal/${p.foto}" alt="Foto" class="personal-foto" onerror="this.src=''"">`;
+            } else {
+                fotoHtml = `<div class="personal-foto" style="display: flex; align-items: center; justify-content: center; background: #e9ecef;">
+                    <span style="font-size: 48px;">👤</span>
+                </div>`;
+            }
             
             card.innerHTML = `
-                <img src="${foto}" alt="${p.nombre} ${p.apellido}" class="personal-foto" onerror="this.src='https://via.placeholder.com/120?text=Sin+Foto'">
+                ${fotoHtml}
                 <div class="personal-info">
                     <div class="personal-nombre">${p.nombre} ${p.apellido}</div>
                     <div class="personal-dni">DNI: ${p.dni || '-'}</div>
                     ${p.legajo ? `<div class="personal-dni">Legajo: ${p.legajo}</div>` : ''}
-                    ${p.email ? `<div class="personal-dni">${p.email}</div>` : ''}
                 </div>
                 <div class="personal-actions">
-                    {% if current_user.es_admin() %}
                     <button class="btn btn-small btn-edit" onclick="editPersonal(${p.id})" title="Editar">✏️</button>
                     <button class="btn btn-small btn-delete" onclick="deletePersonal(${p.id})" title="Eliminar">🗑️</button>
-                    {% endif %}
                 </div>
             `;
             grid.appendChild(card);
         });
     } catch (error) {
         console.error('Error cargando personal:', error);
+        showNotification('Error al cargar personal', 'error');
     }
 }
 
 async function editPersonal(id) {
     try {
-        const personal = await apiCall(`/api/personal/${id}`);
+        const response = await fetch(`/api/personal/${id}`);
+        if (!response.ok) throw new Error('No se pudo cargar el empleado');
         
-        document.getElementById('personal-id').value = personal.id;
-        document.getElementById('legajo').value = personal.legajo || '';
-        document.getElementById('nombre').value = personal.nombre;
-        document.getElementById('apellido').value = personal.apellido;
-        document.getElementById('dni').value = personal.dni || '';
-        document.getElementById('email').value = personal.email || '';
+        const p = await response.json();
+        document.getElementById('personal-id').value = p.id;
+        document.getElementById('legajo').value = p.legajo || '';
+        document.getElementById('nombre').value = p.nombre;
+        document.getElementById('apellido').value = p.apellido;
+        document.getElementById('dni').value = p.dni || '';
+        document.getElementById('email').value = p.email || '';
         
-        if (personal.foto) {
+        if (p.foto) {
             const img = document.getElementById('foto-img');
-            img.src = `/uploads/personal/${personal.foto}`;
+            img.src = `/static/uploads/personal/${p.foto}`;
             document.getElementById('foto-preview').style.display = 'block';
         }
         
@@ -256,7 +260,7 @@ async function editPersonal(id) {
         document.getElementById('personal-modal').classList.add('active');
         editingId = id;
     } catch (error) {
-        console.error('Error cargando empleado:', error);
+        console.error('Error:', error);
         showNotification('Error al cargar empleado', 'error');
     }
 }
@@ -264,11 +268,16 @@ async function editPersonal(id) {
 async function deletePersonal(id) {
     if (confirm('¿Desea eliminar este empleado?')) {
         try {
-            await apiCall(`/api/personal/${id}`, 'DELETE');
-            showNotification('Empleado eliminado');
+            const response = await fetch(`/api/personal/${id}`, { method: 'DELETE' });
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Error al eliminar');
+            }
+            showNotification('Empleado eliminado exitosamente');
             loadPersonal();
         } catch (error) {
             console.error('Error:', error);
+            showNotification(error.message || 'Error al eliminar empleado', 'error');
         }
     }
 }
