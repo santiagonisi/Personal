@@ -616,13 +616,23 @@ def actualizar_obra(id):
 @obras_bp.route('/<int:id>', methods=['DELETE'])
 @admin_required
 def eliminar_obra(id):
-    obra = Obra.query.get(id)
-    if not obra:
-        return jsonify({'error': 'No encontrado'}), 404
-    
-    db.session.delete(obra)
-    db.session.commit()
-    return jsonify({'mensaje': 'Eliminado'})
+    try:
+        obra = Obra.query.get(id)
+        if not obra:
+            return jsonify({'error': 'Obra no encontrada'}), 404
+        
+        # Eliminar registros asociados (cascade delete)
+        IngresoEgreso.query.filter_by(obra_id=id).delete()
+        Presentismo.query.filter_by(obra_id=id).delete()
+        
+        # Ahora eliminar la obra
+        db.session.delete(obra)
+        db.session.commit()
+        return jsonify({'mensaje': 'Obra eliminada exitosamente'})
+    except Exception as e:
+        db.session.rollback()
+        error_msg = str(e)
+        return jsonify({'error': f'Error al eliminar: {error_msg}'}), 500
 
 
 @main_bp.route('/api/parte-diario', methods=['GET'])
@@ -634,9 +644,7 @@ def get_parte_diario():
     if not obra_id:
         return jsonify({'error': 'obra_id es requerido'}), 400
 
-    personal_obra = Personal.query.filter(
-        Personal.lugar_trabajo.in_(['obra', 'planta'])
-    ).order_by(Personal.apellido.asc(), Personal.nombre.asc()).all()
+    personal_obra = Personal.query.order_by(Personal.apellido.asc(), Personal.nombre.asc()).all()
     presentismos = Presentismo.query.filter_by(obra_id=obra_id, fecha=fecha).all()
     ingresos_egresos = IngresoEgreso.query.filter_by(obra_id=obra_id, fecha=fecha).all()
 
@@ -654,7 +662,6 @@ def get_parte_diario():
             'nombre': persona.nombre,
             'apellido': persona.apellido,
             'dni': persona.dni,
-            'lugar_trabajo': persona.lugar_trabajo,
             'puesto': None,
             'presentismo_id': presentismo.id if presentismo else None,
             'tipo': tipo,
@@ -841,7 +848,6 @@ def get_historico_obreros():
             'nombre': obrero.nombre,
             'apellido': obrero.apellido,
             'dni': obrero.dni,
-            'lugar_trabajo': obrero.lugar_trabajo,
             'obras': obras,
             'total_horas': total_horas,
             'dias_trabajados': dias_trabajados,
